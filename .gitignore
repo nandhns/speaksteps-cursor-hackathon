@@ -1,0 +1,101 @@
+# =============================================================================
+# SPEAKSTEPS .GITIGNORE
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Python
+# ------------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env
+*.egg-info/
+dist/
+build/
+
+# ------------------------------------------------------------------------------
+# Jupyter Notebooks
+# ------------------------------------------------------------------------------
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ------------------------------------------------------------------------------
+# ML Models (large files - use Git LFS or exclude)
+# ------------------------------------------------------------------------------
+# Uncomment if models are too large for git:
+# *.tflite
+# *.joblib
+# saved_model/
+
+# ------------------------------------------------------------------------------
+# Flutter
+# ------------------------------------------------------------------------------
+# Build outputs
+frontend/build/
+frontend/.dart_tool/
+frontend/.packages
+frontend/.pub-cache/
+frontend/.pub/
+
+# Generated files
+frontend/**/*.g.dart
+frontend/**/*.freezed.dart
+
+# Local configuration
+frontend/android/local.properties
+frontend/android/.gradle/
+frontend/android/app/build/
+frontend/android/build/
+
+# iOS
+frontend/ios/.symlinks/
+frontend/ios/Pods/
+frontend/ios/Flutter/ephemeral/
+frontend/ios/Flutter/flutter_export_environment.sh
+frontend/ios/Flutter/Generated.xcconfig
+frontend/ios/Runner/GeneratedPluginRegistrant.*
+
+# macOS
+frontend/macos/Flutter/ephemeral/
+frontend/macos/Flutter/GeneratedPluginRegistrant.swift
+
+# Linux
+frontend/linux/flutter/ephemeral/
+
+# Windows
+frontend/windows/flutter/ephemeral/
+
+# Web
+frontend/web/.dart_tool/
+
+# ------------------------------------------------------------------------------
+# IDE
+# ------------------------------------------------------------------------------
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ------------------------------------------------------------------------------
+# Firebase
+# ------------------------------------------------------------------------------
+.firebase/
+firebase-debug.log
+.firebaserc
+
+# ------------------------------------------------------------------------------
+# Misc
+# ------------------------------------------------------------------------------
+*.log
+*.tmp
+*.temp
+.env.local
+.env.*.local

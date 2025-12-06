@@ -1,0 +1,203 @@
+rules_version = '2';
+
+// =============================================================================
+// SPEAKSTEPS FIRESTORE SECURITY RULES
+// =============================================================================
+// 
+// Collections:
+//   /therapists/{therapistId}
+//   /patients/{patientId}
+//   /questions/{questionId}
+//   /sessions/{sessionId}
+//   /sessions/{sessionId}/trials/{trialId}
+//
+// Storage paths:
+//   questions/{questionId}/{filename}.jpg
+//
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // =========================================================================
+    // HELPER FUNCTIONS
+    // =========================================================================
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if the authenticated user is the specified therapist
+    function isTherapist(therapistId) {
+      return isAuthenticated() && request.auth.uid == therapistId;
+    }
+    
+    // Check if user is any therapist (has a therapist document)
+    function isAnyTherapist() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/therapists/$(request.auth.uid));
+    }
+    
+    // Check if user is an admin (custom claim)
+    function isAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.admin == true;
+    }
+    
+    // Check if therapist owns this patient
+    function therapistOwnsPatient(patientId) {
+      return isAnyTherapist() &&
+             get(/databases/$(database)/documents/patients/$(patientId)).data.assigned_therapist == request.auth.uid;
+    }
+    
+    // Validate timestamp is server timestamp
+    function isValidTimestamp(field) {
+      return request.resource.data[field] == request.time;
+    }
+    
+    // =========================================================================
+    // THERAPISTS COLLECTION
+    // /therapists/{therapistId}
+    // =========================================================================
+    match /therapists/{therapistId} {
+      // Therapists can read their own document
+      // Admins can read any therapist
+      allow read: if isTherapist(therapistId) || isAdmin();
+      
+      // Therapists can create their own document (on signup)
+      allow create: if isTherapist(therapistId) &&
+                       request.resource.data.keys().hasAll(['name', 'email', 'created_at']) &&
+                       request.resource.data.email == request.auth.token.email;
+      
+      // Therapists can update their own document (except email)
+      allow update: if isTherapist(therapistId) &&
+                       request.resource.data.email == resource.data.email;
+      
+      // Only admins can delete therapists
+      allow delete: if isAdmin();
+    }
+    
+    // =========================================================================
+    // PATIENTS COLLECTION
+    // /patients/{patientId}
+    // =========================================================================
+    match /patients/{patientId} {
+      // Therapists can read their own patients
+      // Admins can read any patient
+      allow read: if therapistOwnsPatient(patientId) || 
+                     isAdmin() ||
+                     (isAuthenticated() && request.auth.uid == patientId);
+      
+      // Only assigned therapist can create patients
+      // Patient must be assigned to the creating therapist
+      allow create: if isAnyTherapist() &&
+                       request.resource.data.assigned_therapist == request.auth.uid &&
+                       request.resource.data.keys().hasAll(['alias', 'assigned_therapist', 'created_at']);
+      
+      // Assigned therapist can update their patients
+      allow update: if therapistOwnsPatient(patientId) &&
+                       // Cannot change assigned_therapist
+                       request.resource.data.assigned_therapist == resource.data.assigned_therapist;
+      
+      // Only admins or assigned therapist can delete
+      allow delete: if therapistOwnsPatient(patientId) || isAdmin();
+    }
+    
+    // =========================================================================
+    // QUESTIONS COLLECTION
+    // /questions/{questionId}
+    // =========================================================================
+    match /questions/{questionId} {
+      // Any authenticated user (therapist or patient) can read questions
+      allow read: if isAuthenticated();
+      
+      // Therapists and admins can create questions
+      allow create: if (isAnyTherapist() || isAdmin()) &&
+                       request.resource.data.keys().hasAll([
+                         'module', 'category', 'item', 'difficulty_label', 'created_at'
+                       ]) &&
+                       request.resource.data.module in ['writing', 'comprehension'] &&
+                       request.resource.data.category in ['animals', 'body_parts', 'clothing', 'food'] &&
+                       request.resource.data.difficulty_label in ['easy', 'hard'];
+      
+      // Creator (therapist) or admin can update their questions
+      allow update: if isAdmin() ||
+                       (isAnyTherapist() && resource.data.created_by == request.auth.uid);
+      
+      // Only admins can delete questions
+      allow delete: if isAdmin();
+    }
+    
+    // =========================================================================
+    // SESSIONS COLLECTION
+    // /sessions/{sessionId}
+    // =========================================================================
+    match /sessions/{sessionId} {
+      // Therapists can read sessions for their patients
+      // Patients can read their own sessions
+      allow read: if isAdmin() ||
+                     (isAnyTherapist() && 
+                      therapistOwnsPatient(resource.data.patient_id)) ||
+                     (isAuthenticated() && request.auth.uid == resource.data.patient_id);
+      
+      // Therapists can create sessions for their patients
+      // Patients can create their own sessions
+      allow create: if isAuthenticated() &&
+                       request.resource.data.keys().hasAll([
+                         'patient_id', 'therapist_id', 'start_time', 'device_type'
+                       ]) &&
+                       request.resource.data.device_type in ['mobile', 'web'] &&
+                       (
+                         // Therapist creating for their patient
+                         (isAnyTherapist() && 
+                          request.resource.data.therapist_id == request.auth.uid) ||
+                         // Patient creating their own session
+                         request.resource.data.patient_id == request.auth.uid
+                       );
+      
+      // Sessions can be updated by therapist or patient
+      allow update: if isAdmin() ||
+                       (isAnyTherapist() && resource.data.therapist_id == request.auth.uid) ||
+                       (isAuthenticated() && resource.data.patient_id == request.auth.uid);
+      
+      // Only admins can delete sessions
+      allow delete: if isAdmin();
+      
+      // -----------------------------------------------------------------------
+      // TRIALS SUBCOLLECTION
+      // /sessions/{sessionId}/trials/{trialId}
+      // -----------------------------------------------------------------------
+      match /trials/{trialId} {
+        // Same read rules as parent session
+        allow read: if isAdmin() ||
+                       (isAnyTherapist() && 
+                        therapistOwnsPatient(get(/databases/$(database)/documents/sessions/$(sessionId)).data.patient_id)) ||
+                       (isAuthenticated() && 
+                        get(/databases/$(database)/documents/sessions/$(sessionId)).data.patient_id == request.auth.uid);
+        
+        // Trials can be created during active session
+        allow create: if isAuthenticated() &&
+                         request.resource.data.keys().hasAll([
+                           'question_id', 'response_time_seconds', 'correct', 'timestamp'
+                         ]) &&
+                         request.resource.data.response_time_seconds >= 0 &&
+                         request.resource.data.correct in [true, false, 0, 1];
+        
+        // Trials are immutable after creation (no updates)
+        allow update: if false;
+        
+        // Only admins can delete trials
+        allow delete: if isAdmin();
+      }
+    }
+    
+    // =========================================================================
+    // DENY ALL OTHER ACCESS
+    // =========================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

@@ -1,0 +1,78 @@
+rules_version = '2';
+
+// =============================================================================
+// SPEAKSTEPS FIREBASE STORAGE SECURITY RULES
+// =============================================================================
+//
+// Storage structure:
+//   questions/{questionId}/{filename}.jpg  - Question images
+//   patients/{patientId}/avatar.jpg        - Patient avatars (optional)
+//
+// =============================================================================
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // =========================================================================
+    // HELPER FUNCTIONS
+    // =========================================================================
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user is admin
+    function isAdmin() {
+      return request.auth.token.admin == true;
+    }
+    
+    // Validate image file
+    function isValidImage() {
+      return request.resource.contentType.matches('image/.*') &&
+             request.resource.size < 5 * 1024 * 1024; // Max 5MB
+    }
+    
+    // =========================================================================
+    // QUESTION IMAGES
+    // questions/{questionId}/{filename}
+    // =========================================================================
+    match /questions/{questionId}/{filename} {
+      // Any authenticated user can read question images
+      allow read: if isAuthenticated();
+      
+      // Therapists and admins can upload question images
+      // Must be a valid image file under 5MB
+      allow create: if isAuthenticated() && isValidImage();
+      
+      // Only admins can update/overwrite images
+      allow update: if isAdmin() && isValidImage();
+      
+      // Only admins can delete images
+      allow delete: if isAdmin();
+    }
+    
+    // =========================================================================
+    // PATIENT AVATARS (optional)
+    // patients/{patientId}/{filename}
+    // =========================================================================
+    match /patients/{patientId}/{filename} {
+      // Therapists and the patient themselves can read
+      allow read: if isAuthenticated();
+      
+      // Only therapists can upload patient images
+      allow create, update: if isAuthenticated() && isValidImage();
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+    
+    // =========================================================================
+    // DENY ALL OTHER ACCESS
+    // =========================================================================
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

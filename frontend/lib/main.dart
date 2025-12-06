@@ -36,11 +36,12 @@ void main() async {
     print('To use Firebase, set useFirebase = true in lib/services/app_service.dart');
   }
 
-  runApp(const MyApp());
+  runApp(const SpeakStepsApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+/// SpeakSteps - Broca's Aphasia Therapy App
+class SpeakStepsApp extends StatelessWidget {
+  const SpeakStepsApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -80,3 +81,4 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+
