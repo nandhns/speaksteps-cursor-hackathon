@@ -50,7 +50,7 @@ class AllPatientsReportTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          // Report Containers (2 rows, 3 columns = 6 containers)
+          // Report Containers - One row with two containers
           Row(
             children: [
               Expanded(
@@ -72,7 +72,11 @@ class AllPatientsReportTab extends StatelessWidget {
                   Colors.green,
                 ),
               ),
-              const SizedBox(width: 16),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
               Expanded(
                 child: _buildReportContainer(
                   context,
@@ -80,6 +84,16 @@ class AllPatientsReportTab extends StatelessWidget {
                   reportData['totalTimeOnApp'] ?? 'N/A',
                   Icons.access_time,
                   Colors.orange,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildTextContainer(
+                  context,
+                  'Avg Cue Type',
+                  reportData['avgCueType'] ?? 'N/A',
+                  Icons.help_outline,
+                  Colors.teal,
                 ),
               ),
             ],
@@ -104,16 +118,6 @@ class AllPatientsReportTab extends StatelessWidget {
                   reportData['cueNeededPerQuestion'] ?? [],
                   Icons.lightbulb,
                   Colors.amber,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildTextContainer(
-                  context,
-                  'Avg Cue Type',
-                  reportData['avgCueType'] ?? 'N/A',
-                  Icons.help_outline,
-                  Colors.teal,
                 ),
               ),
             ],
@@ -155,12 +159,15 @@ class AllPatientsReportTab extends StatelessWidget {
               children: [
                 Icon(icon, color: color, size: 24),
                 const SizedBox(width: 8),
-                Expanded(
+                Flexible(
                   child: Text(
                     label,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Colors.grey.shade700,
+                          fontSize: 13,
                         ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
                   ),
                 ),
               ],
@@ -171,7 +178,9 @@ class AllPatientsReportTab extends StatelessWidget {
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: color,
+                    fontSize: 20,
                   ),
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -198,38 +207,51 @@ class AllPatientsReportTab extends StatelessWidget {
               children: [
                 Icon(icon, color: color, size: 24),
                 const SizedBox(width: 8),
-                Expanded(
+                Flexible(
                   child: Text(
                     label,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Colors.grey.shade700,
                           fontWeight: FontWeight.bold,
+                          fontSize: 13,
                         ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             items.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Text(
-                        'No data',
-                        style: TextStyle(color: Colors.grey.shade500),
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      'No data',
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 12,
                       ),
                     ),
                   )
-                : SizedBox(
-                    height: 120,
-                    child: ListView.builder(
+                : ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 120),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: const ClampingScrollPhysics(),
                       itemCount: items.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 4),
                       itemBuilder: (context, index) {
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 4.0),
+                          padding: const EdgeInsets.symmetric(vertical: 2.0),
                           child: Text(
                             items[index],
-                            style: Theme.of(context).textTheme.bodySmall,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  fontSize: 11,
+                                  height: 1.4,
+                                  letterSpacing: 0.2,
+                                ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
                         );
                       },
@@ -260,13 +282,16 @@ class AllPatientsReportTab extends StatelessWidget {
               children: [
                 Icon(icon, color: color, size: 24),
                 const SizedBox(width: 8),
-                Expanded(
+                Flexible(
                   child: Text(
                     label,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Colors.grey.shade700,
                           fontWeight: FontWeight.bold,
+                          fontSize: 13,
                         ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
                   ),
                 ),
               ],
@@ -277,7 +302,9 @@ class AllPatientsReportTab extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: color,
+                    fontSize: 18,
                   ),
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

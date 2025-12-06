@@ -20,6 +20,14 @@ class TherapistDashboardScreen extends StatefulWidget {
 
 class _TherapistDashboardScreenState extends State<TherapistDashboardScreen> {
   DashboardView _currentView = DashboardView.all;
+  UserModel? _patientToSelect;
+
+  void _navigateToPatient(UserModel patient) {
+    setState(() {
+      _currentView = DashboardView.byPatient;
+      _patientToSelect = patient;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,8 +61,8 @@ class _TherapistDashboardScreenState extends State<TherapistDashboardScreen> {
         ],
       ),
       body: _currentView == DashboardView.all
-          ? const AllPatientsView()
-          : const ByPatientView(),
+          ? AllPatientsView(onPatientSelected: _navigateToPatient)
+          : ByPatientView(initialPatient: _patientToSelect),
     );
   }
 
@@ -66,6 +74,10 @@ class _TherapistDashboardScreenState extends State<TherapistDashboardScreen> {
         onPressed: () {
           setState(() {
             _currentView = view;
+            // Reset patient selection when switching views
+            if (view == DashboardView.all) {
+              _patientToSelect = null;
+            }
           });
         },
         style: OutlinedButton.styleFrom(

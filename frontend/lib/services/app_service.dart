@@ -21,6 +21,14 @@ abstract class AppService {
   Future<List<UserModel>> getTherapistPatients(String therapistId);
   Future<PatientProgress?> getPatientProgress(String patientId);
   Stream<PatientProgress?> getPatientProgressStream(String patientId);
+  Future<UserModel?> createPatient({
+    required String email,
+    required String name,
+    required String diagnosis,
+    required String patientPhone,
+    required String caregiverName,
+    required String caregiverPhone,
+  });
 }
 
 /// Service factory - Switch between Mock and Firebase
@@ -99,6 +107,23 @@ class MockServiceAdapter implements AppService {
 
   @override
   Stream<PatientProgress?> getPatientProgressStream(String patientId) => _mockService.getPatientProgressStream(patientId);
+
+  @override
+  Future<UserModel?> createPatient({
+    required String email,
+    required String name,
+    required String diagnosis,
+    required String patientPhone,
+    required String caregiverName,
+    required String caregiverPhone,
+  }) => _mockService.createPatient(
+        email: email,
+        name: name,
+        diagnosis: diagnosis,
+        patientPhone: patientPhone,
+        caregiverName: caregiverName,
+        caregiverPhone: caregiverPhone,
+      );
 }
 
 /// Adapter for FirebaseService to implement AppService
@@ -157,5 +182,22 @@ class FirebaseServiceAdapter implements AppService {
 
   @override
   Stream<PatientProgress?> getPatientProgressStream(String patientId) => _firebaseService.getPatientProgressStream(patientId);
+
+  @override
+  Future<UserModel?> createPatient({
+    required String email,
+    required String name,
+    required String diagnosis,
+    required String patientPhone,
+    required String caregiverName,
+    required String caregiverPhone,
+  }) => _firebaseService.createPatient(
+        email: email,
+        name: name,
+        diagnosis: diagnosis,
+        patientPhone: patientPhone,
+        caregiverName: caregiverName,
+        caregiverPhone: caregiverPhone,
+      );
 }
 

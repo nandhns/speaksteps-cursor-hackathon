@@ -165,28 +165,39 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                               ),
                         ),
                         const SizedBox(height: 16),
-                        Row(
+                        // Exercise Type Selection - 2 rows, 1 container each row
+                        Column(
                           children: [
-                            Expanded(
-                              child: _buildExerciseTypeCard(
-                                context,
-                                ExerciseType.writing,
-                                '✍️',
-                                'Writing',
-                                'Type the word you see',
-                                Colors.blue,
-                              ),
+                            // First row: Writing
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildExerciseTypeCard(
+                                    context,
+                                    ExerciseType.writing,
+                                    '✍️',
+                                    'Writing',
+                                    'Type the word you see',
+                                    Colors.blue,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildExerciseTypeCard(
-                                context,
-                                ExerciseType.comprehension,
-                                '👂',
-                                'Comprehension',
-                                'Match picture to word',
-                                Colors.purple,
-                              ),
+                            const SizedBox(height: 16),
+                            // Second row: Comprehension
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildExerciseTypeCard(
+                                    context,
+                                    ExerciseType.comprehension,
+                                    '👂',
+                                    'Comprehension',
+                                    'Match picture to word',
+                                    Colors.purple,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -211,46 +222,57 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        Row(
+                        // Category Selection - 2 rows, 2 containers each
+                        Column(
                           children: [
-                            Expanded(
-                              child: _buildCategoryCard(
-                                context,
-                                ExerciseCategory.animal,
-                                '🐾',
-                                'Animals',
-                                Colors.orange,
-                              ),
+                            // First row: Animals and Body Parts
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildCategoryCard(
+                                    context,
+                                    ExerciseCategory.animal,
+                                    '🐾',
+                                    'Animals',
+                                    Colors.orange,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildCategoryCard(
+                                    context,
+                                    ExerciseCategory.bodyParts,
+                                    '👤',
+                                    'Body Parts',
+                                    Colors.pink,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildCategoryCard(
-                                context,
-                                ExerciseCategory.bodyParts,
-                                '👤',
-                                'Body Parts',
-                                Colors.pink,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildCategoryCard(
-                                context,
-                                ExerciseCategory.clothing,
-                                '👕',
-                                'Clothing',
-                                Colors.blue,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildCategoryCard(
-                                context,
-                                ExerciseCategory.food,
-                                '🍎',
-                                'Food',
-                                Colors.green,
-                              ),
+                            const SizedBox(height: 16),
+                            // Second row: Clothing and Food
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildCategoryCard(
+                                    context,
+                                    ExerciseCategory.clothing,
+                                    '👕',
+                                    'Clothing',
+                                    Colors.blue,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildCategoryCard(
+                                    context,
+                                    ExerciseCategory.food,
+                                    '🍎',
+                                    'Food',
+                                    Colors.green,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),

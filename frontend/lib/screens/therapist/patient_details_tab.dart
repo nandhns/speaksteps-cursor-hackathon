@@ -43,15 +43,17 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
               padding: const EdgeInsets.all(16.0),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: Colors.blue.shade700,
-                    child: Text(
-                      widget.patient.name[0].toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
+                  Flexible(
+                    child: CircleAvatar(
+                      radius: 40,
+                      backgroundColor: Colors.blue.shade700,
+                      child: Text(
+                        widget.patient.name[0].toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -69,16 +71,44 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
                                 fontWeight: FontWeight.bold,
                               ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
+                        const SizedBox(height: 16),
+                        // Patient Information List - Always show all fields
+                        _buildInfoItem(
+                          context,
+                          Icons.email,
+                          'Email',
                           widget.patient.email,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyLarge
-                              ?.copyWith(
-                                color: Colors.grey.shade700,
-                              ),
                         ),
+                        const SizedBox(height: 10),
+                        _buildInfoItem(
+                          context,
+                          Icons.phone,
+                          'Phone Number',
+                          widget.patient.patientPhone ?? 'Not provided',
+                        ),
+                        const SizedBox(height: 10),
+                        _buildInfoItem(
+                          context,
+                          Icons.medical_services,
+                          'Diagnosis',
+                          widget.patient.diagnosis ?? 'Not provided',
+                        ),
+                        const SizedBox(height: 10),
+                        _buildInfoItem(
+                          context,
+                          Icons.people,
+                          'Caregiver Name',
+                          widget.patient.caregiverName ?? 'Not provided',
+                        ),
+                        const SizedBox(height: 10),
+                        _buildInfoItem(
+                          context,
+                          Icons.phone,
+                          'Caregiver Phone Number',
+                          widget.patient.caregiverPhone ?? 'Not provided',
+                        ),
+                        const SizedBox(height: 12),
+                        Divider(color: Colors.grey.shade300),
                         const SizedBox(height: 8),
                         Text(
                           'Total Exercises: ${widget.scores.length}',
@@ -162,15 +192,20 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: isPassing
-                        ? Colors.green.shade100
-                        : Colors.orange.shade100,
-                    child: Icon(
-                      isPassing ? Icons.check : Icons.close,
-                      color: isPassing
-                          ? Colors.green.shade700
-                          : Colors.orange.shade700,
+                  leading: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: CircleAvatar(
+                      backgroundColor: isPassing
+                          ? Colors.green.shade100
+                          : Colors.orange.shade100,
+                      child: Icon(
+                        isPassing ? Icons.check : Icons.close,
+                        color: isPassing
+                            ? Colors.green.shade700
+                            : Colors.orange.shade700,
+                        size: 20,
+                      ),
                     ),
                   ),
                   title: Text(
@@ -214,30 +249,36 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
                         ),
                     ],
                   ),
-                  trailing: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '${score.score}/${score.maxScore}',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: isPassing
-                                  ? Colors.green.shade700
-                                  : Colors.orange.shade700,
-                            ),
-                      ),
-                      Text(
-                        '${((score.score / score.maxScore) * 100).toStringAsFixed(0)}%',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
+                  trailing: SizedBox(
+                    width: 80,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${score.score}/${score.maxScore}',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: isPassing
+                                    ? Colors.green.shade700
+                                    : Colors.orange.shade700,
+                              ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                    ],
+                        Text(
+                          '${((score.score / score.maxScore) * 100).toStringAsFixed(0)}%',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -588,6 +629,47 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
       default:
         return 'Unknown';
     }
+  }
+
+  Widget _buildInfoItem(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value,
+  ) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: 20,
+          color: Colors.grey.shade700,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
+                      fontSize: 12,
+                    ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey.shade900,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 

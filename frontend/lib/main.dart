@@ -52,10 +52,15 @@ class SpeakStepsApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.blue,
+            seedColor: const Color(0xFFCCA8E0),
             brightness: Brightness.light,
           ),
           useMaterial3: true,
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Color(0xFFCCA8E0),
+            foregroundColor: Colors.white,
+            elevation: 0,
+          ),
           cardTheme: CardThemeData(
             elevation: 2,
             shape: RoundedRectangleBorder(

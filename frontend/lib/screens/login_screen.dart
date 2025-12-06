@@ -69,15 +69,8 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.blue.shade400,
-              Colors.purple.shade400,
-            ],
-          ),
+        decoration: const BoxDecoration(
+          color: Color(0xFFCCA8E0),
         ),
         child: Center(
           child: SingleChildScrollView(
@@ -96,21 +89,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Icon(
-                        Icons.health_and_safety,
-                        size: 64,
-                        color: Colors.blue.shade700,
+                      Image.asset(
+                        'images/SpeakSteps_Logo_Only.png',
+                        height: 120,
+                        width: 120,
+                        fit: BoxFit.contain,
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'SpeakSteps',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue.shade700,
-                            ),
-                      ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 24),
                       Text(
                         _isSignUp ? 'Create Account' : 'Welcome Back',
                         textAlign: TextAlign.center,

@@ -23,16 +23,33 @@ class PatientListSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 300,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        border: Border(
-          right: BorderSide(color: Colors.grey.shade300),
-        ),
-      ),
-      child: Column(
+    return Column(
         children: [
+          // Drawer Header
+          DrawerHeader(
+            decoration: BoxDecoration(
+              color: Colors.blue.shade700,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                const Icon(
+                  Icons.people,
+                  color: Colors.white,
+                  size: 32,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Patients',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ],
+            ),
+          ),
           // Search and Sort
           Padding(
             padding: const EdgeInsets.all(16.0),
@@ -152,7 +169,6 @@ class PatientListSidebar extends StatelessWidget {
                   ),
           ),
         ],
-      ),
     );
   }
 }

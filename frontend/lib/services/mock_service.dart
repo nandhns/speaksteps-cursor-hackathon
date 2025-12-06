@@ -14,6 +14,10 @@ class MockService {
       name: 'John Patient',
       role: UserRole.patient,
       createdAt: DateTime.now().subtract(const Duration(days: 30)),
+      diagnosis: 'Broca\'s Aphasia',
+      patientPhone: '+1 (555) 123-4567',
+      caregiverName: 'Jane Patient',
+      caregiverPhone: '+1 (555) 123-4568',
     ),
     UserModel(
       id: 'patient2',
@@ -21,6 +25,10 @@ class MockService {
       name: 'Mary Smith',
       role: UserRole.patient,
       createdAt: DateTime.now().subtract(const Duration(days: 25)),
+      diagnosis: 'Wernicke\'s Aphasia',
+      patientPhone: '+1 (555) 234-5678',
+      caregiverName: 'Robert Smith',
+      caregiverPhone: '+1 (555) 234-5679',
     ),
     UserModel(
       id: 'patient3',
@@ -28,6 +36,10 @@ class MockService {
       name: 'David Johnson',
       role: UserRole.patient,
       createdAt: DateTime.now().subtract(const Duration(days: 20)),
+      diagnosis: 'Anomic Aphasia',
+      patientPhone: '+1 (555) 345-6789',
+      caregiverName: 'Lisa Johnson',
+      caregiverPhone: '+1 (555) 345-6790',
     ),
     UserModel(
       id: 'patient4',
@@ -35,6 +47,43 @@ class MockService {
       name: 'Emily Brown',
       role: UserRole.patient,
       createdAt: DateTime.now().subtract(const Duration(days: 15)),
+      diagnosis: 'Global Aphasia',
+      patientPhone: '+1 (555) 456-7890',
+      caregiverName: 'Michael Brown',
+      caregiverPhone: '+1 (555) 456-7891',
+    ),
+    UserModel(
+      id: 'patient5',
+      email: 'james@test.com',
+      name: 'James Wilson',
+      role: UserRole.patient,
+      createdAt: DateTime.now().subtract(const Duration(days: 10)),
+      diagnosis: 'Conduction Aphasia',
+      patientPhone: '+1 (555) 567-8901',
+      caregiverName: 'Patricia Wilson',
+      caregiverPhone: '+1 (555) 567-8902',
+    ),
+    UserModel(
+      id: 'patient6',
+      email: 'susan@test.com',
+      name: 'Susan Davis',
+      role: UserRole.patient,
+      createdAt: DateTime.now().subtract(const Duration(days: 8)),
+      diagnosis: 'Transcortical Motor Aphasia',
+      patientPhone: '+1 (555) 678-9012',
+      caregiverName: 'Thomas Davis',
+      caregiverPhone: '+1 (555) 678-9013',
+    ),
+    UserModel(
+      id: 'patient7',
+      email: 'robert@test.com',
+      name: 'Robert Martinez',
+      role: UserRole.patient,
+      createdAt: DateTime.now().subtract(const Duration(days: 5)),
+      diagnosis: 'Primary Progressive Aphasia',
+      patientPhone: '+1 (555) 789-0123',
+      caregiverName: 'Jennifer Martinez',
+      caregiverPhone: '+1 (555) 789-0124',
     ),
     UserModel(
       id: 'therapist1',
@@ -64,12 +113,14 @@ class MockService {
     String baseId,
     List<String> correctAnswers,
     List<List<String>> wrongOptionsList,
+    List<Map<String, String>> cueHierarchies,
   ) {
     return List.generate(correctAnswers.length, (index) {
       return ExerciseQuestion(
         id: '${baseId}_q${index + 1}',
         correctAnswer: correctAnswers[index],
         imageOptions: wrongOptionsList[index],
+        cueHierarchy: cueHierarchies[index],
       );
     });
   }
@@ -217,6 +268,13 @@ class MockService {
           ['Fish', 'Ear', 'Shoes', 'Milk'],
           ['Lion', 'Nose', 'Socks', 'Orange'],
         ],
+        [
+          {'function': 'It barks and wags its tail', 'rhyming': 'Rhymes with "log"', 'written': 'D-O-G'},
+          {'function': 'It meows and purrs', 'rhyming': 'Rhymes with "hat"', 'written': 'C-A-T'},
+          {'function': 'It flies and chirps', 'rhyming': 'Rhymes with "word"', 'written': 'B-I-R-D'},
+          {'function': 'It swims in water', 'rhyming': 'Rhymes with "dish"', 'written': 'F-I-S-H'},
+          {'function': 'It roars and has a mane', 'rhyming': 'Rhymes with "iron"', 'written': 'L-I-O-N'},
+        ],
       ),
     ),
     Exercise(
@@ -245,6 +303,13 @@ class MockService {
           ['Bread', 'Bird', 'Eye', 'Hat'],
           ['Milk', 'Fish', 'Ear', 'Shoes'],
           ['Orange', 'Lion', 'Nose', 'Socks'],
+        ],
+        [
+          {'function': 'A yellow fruit', 'rhyming': 'Rhymes with "bandana"', 'written': 'B-A-N-A-N-A'},
+          {'function': 'A red fruit', 'rhyming': 'Rhymes with "grapple"', 'written': 'A-P-P-L-E'},
+          {'function': 'Made from flour', 'rhyming': 'Rhymes with "red"', 'written': 'B-R-E-A-D'},
+          {'function': 'White drink', 'rhyming': 'Rhymes with "silk"', 'written': 'M-I-L-K'},
+          {'function': 'A citrus fruit', 'rhyming': 'Rhymes with "range"', 'written': 'O-R-A-N-G-E'},
         ],
       ),
     ),
@@ -389,6 +454,13 @@ class MockService {
           ['Ear', 'Fish', 'Shoes', 'Milk'],
           ['Nose', 'Lion', 'Socks', 'Orange'],
         ],
+        [
+          {'function': 'You use it to hold things', 'rhyming': 'Rhymes with "band"', 'written': 'H-A-N-D'},
+          {'function': 'You walk with it', 'rhyming': 'Rhymes with "put"', 'written': 'F-O-O-T'},
+          {'function': 'You see with it', 'rhyming': 'Rhymes with "pie"', 'written': 'E-Y-E'},
+          {'function': 'You hear with it', 'rhyming': 'Rhymes with "near"', 'written': 'E-A-R'},
+          {'function': 'You smell with it', 'rhyming': 'Rhymes with "rose"', 'written': 'N-O-S-E'},
+        ],
       ),
     ),
     Exercise(
@@ -417,6 +489,13 @@ class MockService {
           ['Hat', 'Bird', 'Eye', 'Bread'],
           ['Shoes', 'Fish', 'Ear', 'Milk'],
           ['Socks', 'Lion', 'Nose', 'Orange'],
+        ],
+        [
+          {'function': 'You wear it on your upper body', 'rhyming': 'Rhymes with "hurt"', 'written': 'S-H-I-R-T'},
+          {'function': 'You wear it on your legs', 'rhyming': 'Rhymes with "ants"', 'written': 'P-A-N-T-S'},
+          {'function': 'You wear it on your head', 'rhyming': 'Rhymes with "bat"', 'written': 'H-A-T'},
+          {'function': 'You wear them on your feet', 'rhyming': 'Rhymes with "news"', 'written': 'S-H-O-E-S'},
+          {'function': 'You wear them under shoes', 'rhyming': 'Rhymes with "locks"', 'written': 'S-O-C-K-S'},
         ],
       ),
     ),
@@ -543,6 +622,43 @@ class MockService {
   Future<List<UserModel>> getTherapistPatients(String therapistId) async {
     await Future.delayed(const Duration(milliseconds: 300));
     return _mockUsers.where((u) => u.role == UserRole.patient).toList();
+  }
+
+  /// Create a new patient (called by therapist)
+  Future<UserModel?> createPatient({
+    required String email,
+    required String name,
+    required String diagnosis,
+    required String patientPhone,
+    required String caregiverName,
+    required String caregiverPhone,
+  }) async {
+    // Simulate network delay
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // Check if email already exists
+    final existingUserIndex = _mockUsers.indexWhere(
+      (u) => u.email.toLowerCase() == email.toLowerCase(),
+    );
+    if (existingUserIndex >= 0) {
+      throw Exception('A user with this email already exists');
+    }
+
+    // Create new patient user
+    final newPatient = UserModel(
+      id: 'patient_${DateTime.now().millisecondsSinceEpoch}',
+      email: email,
+      name: name,
+      role: UserRole.patient,
+      createdAt: DateTime.now(),
+      diagnosis: diagnosis,
+      patientPhone: patientPhone,
+      caregiverName: caregiverName,
+      caregiverPhone: caregiverPhone,
+    );
+
+    _mockUsers.add(newPatient);
+    return newPatient;
   }
 
   Future<PatientProgress?> getPatientProgress(String patientId) async {

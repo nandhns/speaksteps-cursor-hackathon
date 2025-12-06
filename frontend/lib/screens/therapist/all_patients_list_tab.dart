@@ -1,15 +1,61 @@
 import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
+import '../../services/app_service.dart';
+import '../../widgets/add_patient_dialog.dart';
 
-class AllPatientsListTab extends StatelessWidget {
+class AllPatientsListTab extends StatefulWidget {
   final List<UserModel> patients;
   final VoidCallback onRefresh;
+  final Function(UserModel)? onPatientSelected;
 
   const AllPatientsListTab({
     super.key,
     required this.patients,
     required this.onRefresh,
+    this.onPatientSelected,
   });
+
+  @override
+  State<AllPatientsListTab> createState() => _AllPatientsListTabState();
+}
+
+class _AllPatientsListTabState extends State<AllPatientsListTab> {
+  late final AppService _service;
+
+  @override
+  void initState() {
+    super.initState();
+    _service = ServiceFactory.createService();
+  }
+
+  Future<void> _handleAddPatient({
+    required String email,
+    required String name,
+    required String diagnosis,
+    required String patientPhone,
+    required String caregiverName,
+    required String caregiverPhone,
+  }) async {
+    await _service.createPatient(
+      email: email,
+      name: name,
+      diagnosis: diagnosis,
+      patientPhone: patientPhone,
+      caregiverName: caregiverName,
+      caregiverPhone: caregiverPhone,
+    );
+    // Refresh the patient list
+    widget.onRefresh();
+  }
+
+  void _showAddPatientDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AddPatientDialog(
+        onSubmit: _handleAddPatient,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,20 +68,13 @@ class AllPatientsListTab extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'All Patients (${patients.length})',
+                'All Patients (${widget.patients.length})',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
               ),
               ElevatedButton.icon(
-                onPressed: () {
-                  // TODO: Implement add patient functionality
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Add patient functionality coming soon'),
-                    ),
-                  );
-                },
+                onPressed: _showAddPatientDialog,
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Add Patient'),
                 style: ElevatedButton.styleFrom(
@@ -47,7 +86,7 @@ class AllPatientsListTab extends StatelessWidget {
         ),
         // Patient list
         Expanded(
-          child: patients.isEmpty
+          child: widget.patients.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -75,9 +114,9 @@ class AllPatientsListTab extends StatelessWidget {
                   ),
                 )
               : ListView.builder(
-                  itemCount: patients.length,
+                  itemCount: widget.patients.length,
                   itemBuilder: (context, index) {
-                    final patient = patients[index];
+                    final patient = widget.patients[index];
                     return Card(
                       margin: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -97,6 +136,11 @@ class AllPatientsListTab extends StatelessWidget {
                         ),
                         subtitle: Text(patient.email),
                         trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          if (widget.onPatientSelected != null) {
+                            widget.onPatientSelected!(patient);
+                          }
+                        },
                       ),
                     );
                   },

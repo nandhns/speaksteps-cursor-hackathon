@@ -9,7 +9,12 @@ import 'all_patients_report_tab.dart';
 // ServiceFactory is in app_service.dart
 
 class AllPatientsView extends StatefulWidget {
-  const AllPatientsView({super.key});
+  final Function(UserModel)? onPatientSelected;
+
+  const AllPatientsView({
+    super.key,
+    this.onPatientSelected,
+  });
 
   @override
   State<AllPatientsView> createState() => _AllPatientsViewState();
@@ -77,6 +82,7 @@ class _AllPatientsViewState extends State<AllPatientsView>
               AllPatientsListTab(
                 patients: _patients,
                 onRefresh: _loadData,
+                onPatientSelected: widget.onPatientSelected,
               ),
               AllPatientsReportTab(
                 patients: _patients,

@@ -9,7 +9,12 @@ import 'patient_report_tab.dart';
 // ServiceFactory is in app_service.dart
 
 class ByPatientView extends StatefulWidget {
-  const ByPatientView({super.key});
+  final UserModel? initialPatient;
+
+  const ByPatientView({
+    super.key,
+    this.initialPatient,
+  });
 
   @override
   State<ByPatientView> createState() => _ByPatientViewState();
@@ -35,6 +40,24 @@ class _ByPatientViewState extends State<ByPatientView>
   }
 
   @override
+  void didUpdateWidget(ByPatientView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If initialPatient changed and patients are already loaded, select it
+    if (widget.initialPatient != null &&
+        widget.initialPatient != oldWidget.initialPatient &&
+        _patients.isNotEmpty &&
+        !_isLoading) {
+      final foundPatient = _patients.firstWhere(
+        (p) => p.id == widget.initialPatient!.id,
+        orElse: () => _patients.first,
+      );
+      if (_selectedPatient?.id != foundPatient.id) {
+        _handlePatientSelected(foundPatient);
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
@@ -45,9 +68,20 @@ class _ByPatientViewState extends State<ByPatientView>
     final patients = await _service.getTherapistPatients('');
     setState(() {
       _patients = patients;
-      if (patients.isNotEmpty && _selectedPatient == null) {
-        _selectedPatient = patients.first;
-        _loadPatientScores(patients.first.id);
+      // If initialPatient is provided, use it; otherwise use first patient
+      if (patients.isNotEmpty) {
+        if (widget.initialPatient != null) {
+          // Find the patient in the list by ID
+          final foundPatient = patients.firstWhere(
+            (p) => p.id == widget.initialPatient!.id,
+            orElse: () => patients.first,
+          );
+          _selectedPatient = foundPatient;
+          _loadPatientScores(foundPatient.id);
+        } else if (_selectedPatient == null) {
+          _selectedPatient = patients.first;
+          _loadPatientScores(patients.first.id);
+        }
       }
       _isLoading = false;
     });
@@ -87,10 +121,10 @@ class _ByPatientViewState extends State<ByPatientView>
       return const Center(child: CircularProgressIndicator());
     }
 
-    return Row(
-      children: [
-        // Left sidebar with patient list
-        PatientListSidebar(
+    return Scaffold(
+      drawer: Drawer(
+        width: 300,
+        child: PatientListSidebar(
           patients: _filteredAndSortedPatients,
           selectedPatient: _selectedPatient,
           searchQuery: _searchQuery,
@@ -105,42 +139,77 @@ class _ByPatientViewState extends State<ByPatientView>
               _sortAscending = ascending;
             });
           },
-          onPatientSelected: _handlePatientSelected,
+          onPatientSelected: (patient) {
+            _handlePatientSelected(patient);
+            Navigator.of(context).pop(); // Close drawer after selection
+          },
         ),
-        // Right side with tabs
-        Expanded(
-          child: _selectedPatient == null
-              ? const Center(
-                  child: Text('Select a patient to view details'),
-                )
-              : Column(
-                  children: [
-                    TabBar(
-                      controller: _tabController,
-                      tabs: const [
-                        Tab(text: 'Patient Details'),
-                        Tab(text: 'Report'),
-                      ],
-                    ),
-                    Expanded(
-                      child: TabBarView(
-                        controller: _tabController,
-                        children: [
-                          PatientDetailsTab(
-                            patient: _selectedPatient!,
-                            scores: _patientScores,
-                          ),
-                          PatientReportTab(
-                            patient: _selectedPatient!,
-                            scores: _patientScores,
-                          ),
-                        ],
-                      ),
-                    ),
+      ),
+      appBar: AppBar(
+        title: Text(
+          _selectedPatient?.name ?? 'Select a Patient',
+        ),
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+            tooltip: 'Open patient list',
+          ),
+        ),
+      ),
+      body: _selectedPatient == null
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.people_outline,
+                    size: 64,
+                    color: Colors.grey.shade400,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Select a patient to view details',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Colors.grey.shade600,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Tap the menu icon to browse patients',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey.shade500,
+                        ),
+                  ),
+                ],
+              ),
+            )
+          : Column(
+              children: [
+                TabBar(
+                  controller: _tabController,
+                  tabs: const [
+                    Tab(text: 'Patient Details'),
+                    Tab(text: 'Report'),
                   ],
                 ),
-        ),
-      ],
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      PatientDetailsTab(
+                        patient: _selectedPatient!,
+                        scores: _patientScores,
+                      ),
+                      PatientReportTab(
+                        patient: _selectedPatient!,
+                        scores: _patientScores,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }

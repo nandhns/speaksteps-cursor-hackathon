@@ -1,7 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../models/exercise_model.dart';
 import '../../models/exercise_score_model.dart';
+import '../../utils/image_helper.dart';
+import '../../services/cue_predictor.dart';
 
 class ComprehensionExerciseScreen extends StatefulWidget {
   final Exercise exercise;
@@ -25,27 +29,57 @@ class _ComprehensionExerciseScreenState
   String? _selectedImage;
   bool _isSubmitted = false;
   DateTime? _startTime;
+  DateTime? _questionStartTime;
   Timer? _cueTimer;
+  Timer? _mlCheckTimer;
   int _cueLevel = 0;
   String? _currentCue;
   bool _isPlayingAudio = false;
   int _currentQuestionIndex = 0;
   int _correctAnswers = 0;
   List<bool> _questionResults = [];
+  CuePredictor? _cuePredictor;
+  bool _mlModelLoaded = false;
+  int _hintCount = 0;
 
   @override
   void initState() {
     super.initState();
     _startTime = DateTime.now();
+    _questionStartTime = DateTime.now();
     final questions = widget.exercise.questions;
     if (questions.isEmpty) {
       _questionResults = [false];
     } else {
       _questionResults = List.filled(questions.length, false);
     }
-    _startCueTimer();
+    _initializeML().then((_) {
+      // Start ML-based system after model loads (or fallback to timer)
+      _startMLBasedCueSystem();
+    });
     // Auto-play audio on start
     _playAudio();
+  }
+
+  Future<void> _initializeML() async {
+    // Only load ML model on mobile devices (TFLite doesn't work on web)
+    if (kIsWeb) {
+      // Fallback to timer-based on web
+      _startCueTimer();
+      return;
+    }
+
+    try {
+      _cuePredictor = CuePredictor();
+      await _cuePredictor!.loadModel();
+      setState(() {
+        _mlModelLoaded = true;
+      });
+    } catch (e) {
+      print('Failed to load ML model, using timer-based cues: $e');
+      // Fallback to timer-based if ML fails
+      _startCueTimer();
+    }
   }
 
   ExerciseQuestion? _getCurrentQuestion() {
@@ -59,6 +93,8 @@ class _ComprehensionExerciseScreenState
   @override
   void dispose() {
     _cueTimer?.cancel();
+    _mlCheckTimer?.cancel();
+    _cuePredictor?.dispose();
     super.dispose();
   }
 
@@ -74,6 +110,111 @@ class _ComprehensionExerciseScreenState
     }
   }
 
+  /// Start ML-based cue system (checks every 2 seconds)
+  void _startMLBasedCueSystem() {
+    if (!_mlModelLoaded) {
+      // Fallback to timer if ML not loaded
+      _startCueTimer();
+      return;
+    }
+
+    _mlCheckTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      if (_isSubmitted || !mounted) {
+        timer.cancel();
+        return;
+      }
+
+      _checkMLPrediction();
+    });
+  }
+
+  /// Check ML prediction and show cue if needed
+  void _checkMLPrediction() {
+    if (_cuePredictor == null || !_mlModelLoaded || _isSubmitted) return;
+
+    final currentQuestion = _getCurrentQuestion();
+    if (currentQuestion == null) return;
+
+    // Calculate response time
+    final responseTime = DateTime.now().difference(_questionStartTime!).inSeconds.toDouble();
+    
+    // Get current time of day
+    final hour = DateTime.now().hour;
+    String timeOfDay;
+    if (hour >= 6 && hour < 12) {
+      timeOfDay = 'morning';
+    } else if (hour >= 12 && hour < 17) {
+      timeOfDay = 'afternoon';
+    } else if (hour >= 17 && hour < 21) {
+      timeOfDay = 'evening';
+    } else {
+      timeOfDay = 'night';
+    }
+
+    // Prepare ML input
+    final input = CuePredictorInput.fromSimple(
+      responseTimeSeconds: responseTime,
+      cueGiven: _cueLevel > 0 ? 1 : 0,
+      cueStage: _cueLevel,
+      hintCount: _hintCount,
+      difficulty: widget.exercise.difficulty >= 3 ? 'hard' : 'easy',
+      isMobile: !kIsWeb && (Platform.isAndroid || Platform.isIOS),
+      therapistLevel: 3, // Default level
+      questionType: 'word_to_pic', // Comprehension exercise
+      cueType: _cueLevel == 1 ? 'functional' : _cueLevel == 2 ? 'rhyming' : _cueLevel == 3 ? 'written_initial' : null,
+      timeOfDay: timeOfDay,
+      module: 'comprehension',
+      category: widget.exercise.category.name,
+    );
+
+    try {
+      final prediction = _cuePredictor!.predict(input);
+      
+      // If ML predicts cue is needed and we haven't shown this level yet
+      if (prediction.needCue && _cueLevel == 0) {
+        // Show function cue
+        setState(() {
+          _cueLevel = 1;
+          _currentCue = currentQuestion.cueHierarchy?['function'];
+          _hintCount++;
+        });
+        print('ML predicted cue needed. Cue level: $_cueLevel, Cue text: $_currentCue');
+        if (_currentCue != null && _currentCue!.isNotEmpty) {
+          _showCue('Function Cue', _currentCue!);
+        } else {
+          print('Warning: Cue text is null or empty');
+        }
+      } else if (prediction.needCue && _cueLevel == 1 && responseTime > 10) {
+        // Show rhyming cue after function cue
+        setState(() {
+          _cueLevel = 2;
+          _currentCue = currentQuestion.cueHierarchy?['rhyming'];
+          _hintCount++;
+        });
+        if (_currentCue != null) {
+          _showCue('Rhyming Cue', _currentCue!);
+        }
+      } else if (prediction.needCue && _cueLevel == 2 && responseTime > 20) {
+        // Show written cue after rhyming cue
+        setState(() {
+          _cueLevel = 3;
+          _currentCue = currentQuestion.cueHierarchy?['written'];
+          _hintCount++;
+        });
+        if (_currentCue != null) {
+          _showCue('Written Cue', _currentCue!);
+        }
+      }
+    } catch (e) {
+      print('ML prediction error: $e');
+      // Fallback to timer if ML fails
+      if (_cueLevel == 0) {
+        _startCueTimer();
+      }
+    }
+  }
+
+  /// Fallback timer-based cue system (for web or if ML fails)
   void _startCueTimer() {
     final currentQuestion = _getCurrentQuestion();
     if (currentQuestion == null) return;
@@ -83,6 +224,7 @@ class _ComprehensionExerciseScreenState
         setState(() {
           _cueLevel = 1;
           _currentCue = currentQuestion.cueHierarchy?['function'];
+          _hintCount++;
         });
         if (_currentCue != null) {
           _showCue('Function Cue', _currentCue!);
@@ -93,6 +235,7 @@ class _ComprehensionExerciseScreenState
             setState(() {
               _cueLevel = 2;
               _currentCue = currentQuestion.cueHierarchy?['rhyming'];
+              _hintCount++;
             });
             if (_currentCue != null) {
               _showCue('Rhyming Cue', _currentCue!);
@@ -103,6 +246,7 @@ class _ComprehensionExerciseScreenState
                 setState(() {
                   _cueLevel = 3;
                   _currentCue = currentQuestion.cueHierarchy?['written'];
+                  _hintCount++;
                 });
                 if (_currentCue != null) {
                   _showCue('Written Cue', _currentCue!);
@@ -116,22 +260,96 @@ class _ComprehensionExerciseScreenState
   }
 
   void _showCue(String title, String cue) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+    print('_showCue called: title=$title, cue=$cue, mounted=$mounted');
+    if (!mounted) {
+      print('Widget not mounted, cannot show cue');
+      return;
+    }
+    
+    // Schedule the SnackBar to show after the current frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        print('Widget not mounted in postFrameCallback, cannot show cue');
+        return;
+      }
+      try {
+        print('Attempting to show SnackBar...');
+        final scaffoldMessenger = ScaffoldMessenger.of(context);
+        // Clear any existing SnackBar first
+        scaffoldMessenger.clearSnackBars();
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  cue,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(cue),
-          ],
-        ),
-        backgroundColor: Colors.blue.shade700,
-        duration: const Duration(seconds: 5),
+            backgroundColor: Colors.blue.shade700,
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            elevation: 6,
+          ),
+        );
+        print('SnackBar shown successfully');
+      } catch (e, stackTrace) {
+        print('Error showing cue: $e');
+        print('Stack trace: $stackTrace');
+      }
+    });
+  }
+
+  /// Build image widget with fallback to placeholder
+  Widget _buildImageWidget(String item) {
+    final imagePath = ImageHelper.getImagePathFromCategory(
+      widget.exercise.category,
+      item,
+    ) ?? ImageHelper.getImagePathFromItem(item);
+
+    if (imagePath != null) {
+      return Image.asset(
+        imagePath,
+        width: 70,
+        height: 70,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return _buildPlaceholder();
+        },
+      );
+    }
+    
+    return _buildPlaceholder();
+  }
+
+  Widget _buildPlaceholder() {
+    return Container(
+      width: 70,
+      height: 70,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade300,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(
+        Icons.image,
+        size: 36,
+        color: Colors.grey.shade600,
       ),
     );
   }
@@ -199,8 +417,10 @@ class _ComprehensionExerciseScreenState
           _isSubmitted = false;
           _cueLevel = 0;
           _currentCue = null;
+          _hintCount = 0;
+          _questionStartTime = DateTime.now();
         });
-        _startCueTimer();
+        _startMLBasedCueSystem();
         _playAudio();
       } else {
         // All questions completed
@@ -458,31 +678,28 @@ class _ComprehensionExerciseScreenState
                             mainAxisSize: MainAxisSize.min,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              // Image placeholder
-                              Container(
+                              // Actual image from assets
+                              SizedBox(
                                 width: 70,
                                 height: 70,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade300,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.image,
-                                  size: 36,
-                                  color: Colors.grey.shade600,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: _buildImageWidget(option),
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                option,
-                                textAlign: TextAlign.center,
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      fontWeight: isSelected
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
-                                    ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                              const SizedBox(height: 6),
+                              Flexible(
+                                child: Text(
+                                  option,
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                      ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                               if (showResult && isCorrect)
                                 Padding(

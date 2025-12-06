@@ -1,7 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../models/exercise_model.dart';
 import '../../models/exercise_score_model.dart';
+import '../../utils/image_helper.dart';
+import '../../services/cue_predictor.dart';
 
 class WritingExerciseScreen extends StatefulWidget {
   final Exercise exercise;
@@ -23,17 +27,23 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
   final TextEditingController _answerController = TextEditingController();
   bool _isSubmitted = false;
   DateTime? _startTime;
+  DateTime? _questionStartTime;
   Timer? _cueTimer;
+  Timer? _mlCheckTimer;
   int _cueLevel = 0; // 0 = none, 1 = function, 2 = rhyming, 3 = written
   String? _currentCue;
   int _currentQuestionIndex = 0;
   int _correctAnswers = 0;
   List<bool> _questionResults = [];
+  CuePredictor? _cuePredictor;
+  bool _mlModelLoaded = false;
+  int _hintCount = 0;
 
   @override
   void initState() {
     super.initState();
     _startTime = DateTime.now();
+    _questionStartTime = DateTime.now();
     final questions = widget.exercise.questions;
     if (questions.isEmpty) {
       // Fallback: create a single question from exercise data
@@ -41,13 +51,39 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
     } else {
       _questionResults = List.filled(questions.length, false);
     }
-    _startCueTimer();
+    _initializeML().then((_) {
+      // Start ML-based system after model loads (or fallback to timer)
+      _startMLBasedCueSystem();
+    });
+  }
+
+  Future<void> _initializeML() async {
+    // Only load ML model on mobile devices (TFLite doesn't work on web)
+    if (kIsWeb) {
+      // Fallback to timer-based on web
+      _startCueTimer();
+      return;
+    }
+
+    try {
+      _cuePredictor = CuePredictor();
+      await _cuePredictor!.loadModel();
+      setState(() {
+        _mlModelLoaded = true;
+      });
+    } catch (e) {
+      print('Failed to load ML model, using timer-based cues: $e');
+      // Fallback to timer-based if ML fails
+      _startCueTimer();
+    }
   }
 
   @override
   void dispose() {
     _answerController.dispose();
     _cueTimer?.cancel();
+    _mlCheckTimer?.cancel();
+    _cuePredictor?.dispose();
     super.dispose();
   }
 
@@ -59,6 +95,108 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
     return questions[_currentQuestionIndex];
   }
 
+  /// Start ML-based cue system (checks every 2 seconds)
+  void _startMLBasedCueSystem() {
+    if (!_mlModelLoaded) {
+      // Fallback to timer if ML not loaded
+      _startCueTimer();
+      return;
+    }
+
+    _mlCheckTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      if (_isSubmitted || !mounted) {
+        timer.cancel();
+        return;
+      }
+
+      _checkMLPrediction();
+    });
+  }
+
+  /// Check ML prediction and show cue if needed
+  void _checkMLPrediction() {
+    if (_cuePredictor == null || !_mlModelLoaded || _isSubmitted) return;
+
+    final currentQuestion = _currentQuestion;
+    if (currentQuestion == null) return;
+
+    // Calculate response time
+    final responseTime = DateTime.now().difference(_questionStartTime!).inSeconds.toDouble();
+    
+    // Get current time of day
+    final hour = DateTime.now().hour;
+    String timeOfDay;
+    if (hour >= 6 && hour < 12) {
+      timeOfDay = 'morning';
+    } else if (hour >= 12 && hour < 17) {
+      timeOfDay = 'afternoon';
+    } else if (hour >= 17 && hour < 21) {
+      timeOfDay = 'evening';
+    } else {
+      timeOfDay = 'night';
+    }
+
+    // Prepare ML input
+    final input = CuePredictorInput.fromSimple(
+      responseTimeSeconds: responseTime,
+      cueGiven: _cueLevel > 0 ? 1 : 0,
+      cueStage: _cueLevel,
+      hintCount: _hintCount,
+      difficulty: widget.exercise.difficulty >= 3 ? 'hard' : 'easy',
+      isMobile: !kIsWeb && (Platform.isAndroid || Platform.isIOS),
+      therapistLevel: 3, // Default level
+      questionType: 'pic_to_word', // Writing exercise
+      cueType: _cueLevel == 1 ? 'functional' : _cueLevel == 2 ? 'rhyming' : _cueLevel == 3 ? 'written_initial' : null,
+      timeOfDay: timeOfDay,
+      module: 'writing',
+      category: widget.exercise.category.name,
+    );
+
+    try {
+      final prediction = _cuePredictor!.predict(input);
+      
+      // If ML predicts cue is needed and we haven't shown this level yet
+      if (prediction.needCue && _cueLevel == 0) {
+        // Show function cue
+        setState(() {
+          _cueLevel = 1;
+          _currentCue = currentQuestion.cueHierarchy?['function'];
+          _hintCount++;
+        });
+        if (_currentCue != null) {
+          _showCue('Function Cue', _currentCue!);
+        }
+      } else if (prediction.needCue && _cueLevel == 1 && responseTime > 10) {
+        // Show rhyming cue after function cue
+        setState(() {
+          _cueLevel = 2;
+          _currentCue = currentQuestion.cueHierarchy?['rhyming'];
+          _hintCount++;
+        });
+        if (_currentCue != null) {
+          _showCue('Rhyming Cue', _currentCue!);
+        }
+      } else if (prediction.needCue && _cueLevel == 2 && responseTime > 20) {
+        // Show written cue after rhyming cue
+        setState(() {
+          _cueLevel = 3;
+          _currentCue = currentQuestion.cueHierarchy?['written'];
+          _hintCount++;
+        });
+        if (_currentCue != null) {
+          _showCue('Written Cue', _currentCue!);
+        }
+      }
+    } catch (e) {
+      print('ML prediction error: $e');
+      // Fallback to timer if ML fails
+      if (_cueLevel == 0) {
+        _startCueTimer();
+      }
+    }
+  }
+
+  /// Fallback timer-based cue system (for web or if ML fails)
   void _startCueTimer() {
     final currentQuestion = _currentQuestion;
     if (currentQuestion == null) return;
@@ -69,6 +207,7 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
         setState(() {
           _cueLevel = 1;
           _currentCue = currentQuestion.cueHierarchy?['function'];
+          _hintCount++;
         });
         if (_currentCue != null) {
           _showCue('Function Cue', _currentCue!);
@@ -80,6 +219,7 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
             setState(() {
               _cueLevel = 2;
               _currentCue = currentQuestion.cueHierarchy?['rhyming'];
+              _hintCount++;
             });
             if (_currentCue != null) {
               _showCue('Rhyming Cue', _currentCue!);
@@ -91,6 +231,7 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
                 setState(() {
                   _cueLevel = 3;
                   _currentCue = currentQuestion.cueHierarchy?['written'];
+                  _hintCount++;
                 });
                 if (_currentCue != null) {
                   _showCue('Written Cue', _currentCue!);
@@ -104,22 +245,83 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
   }
 
   void _showCue(String title, String cue) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            Text(cue),
-          ],
+    if (!mounted) return;
+    
+    // Use a post-frame callback to ensure context is valid
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      // Clear any existing SnackBar first
+      scaffoldMessenger.clearSnackBars();
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(cue),
+            ],
+          ),
+          backgroundColor: Colors.blue.shade700,
+          duration: const Duration(seconds: 5),
         ),
-        backgroundColor: Colors.blue.shade700,
-        duration: const Duration(seconds: 5),
+      );
+    });
+  }
+
+  /// Build image widget with fallback to placeholder
+  Widget _buildImageWidget(ExerciseQuestion? question) {
+    final answer = question?.correctAnswer ?? widget.exercise.correctAnswer;
+    if (answer == null) {
+      return _buildPlaceholder('N/A');
+    }
+
+    // Try to get image path from exercise category and answer
+    final imagePath = ImageHelper.getImagePathFromCategory(
+      widget.exercise.category,
+      answer,
+    ) ?? ImageHelper.getImagePathFromItem(answer);
+
+    if (imagePath != null) {
+      return Image.asset(
+        imagePath,
+        width: 300,
+        height: 300,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return _buildPlaceholder(answer);
+        },
+      );
+    }
+
+    return _buildPlaceholder(answer);
+  }
+
+  Widget _buildPlaceholder(String answer) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.image,
+            size: 64,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Image: $answer',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -188,8 +390,10 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
           _isSubmitted = false;
           _cueLevel = 0;
           _currentCue = null;
+          _hintCount = 0;
+          _questionStartTime = DateTime.now();
         });
-        _startCueTimer();
+        _startMLBasedCueSystem();
       } else {
         // All questions completed
         final timeTaken = DateTime.now().difference(_startTime!).inSeconds;
@@ -333,86 +537,21 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
             ),
             const SizedBox(height: 32),
             // Display Image
-            if (widget.exercise.imageUrl != null)
-              Center(
-                child: Container(
-                  width: 300,
-                  height: 300,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade300, width: 2),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.network(
-                      widget.exercise.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.image,
-                                size: 64,
-                                color: Colors.grey.shade400,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                currentQuestion != null 
-                                    ? 'Image: ${currentQuestion.correctAnswer}'
-                                    : 'Image: ${widget.exercise.correctAnswer ?? "N/A"}',
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+            Center(
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade300, width: 2),
                 ),
-              )
-            else
-              // Placeholder if no image URL
-              Center(
-                child: Container(
-                  width: 300,
-                  height: 300,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade300, width: 2),
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.image,
-                          size: 64,
-                          color: Colors.grey.shade400,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          currentQuestion != null 
-                              ? 'Image: ${currentQuestion.correctAnswer}'
-                              : 'Image: ${widget.exercise.correctAnswer ?? "N/A"}',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: _buildImageWidget(currentQuestion),
                 ),
               ),
+            ),
             const SizedBox(height: 32),
             Text(
               'Type the word you see:',

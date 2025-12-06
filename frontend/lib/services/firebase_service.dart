@@ -198,6 +198,75 @@ class FirebaseService {
     }
   }
 
+  /// Create a new patient (called by therapist)
+  /// Creates a user account with a temporary password
+  /// 
+  /// NOTE: In production, this should be done via a backend API using Firebase Admin SDK
+  /// to avoid signing out the therapist. For now, this implementation creates the patient
+  /// but the therapist will need to sign back in after creating a patient.
+  Future<UserModel?> createPatient({
+    required String email,
+    required String name,
+    required String diagnosis,
+    required String patientPhone,
+    required String caregiverName,
+    required String caregiverPhone,
+  }) async {
+    try {
+      // Store current therapist user info
+      final currentTherapist = _auth.currentUser;
+      final therapistEmail = currentTherapist?.email;
+
+      // Generate a temporary password (in production, send this via email to patient/caregiver)
+      final tempPassword = 'TempPass${DateTime.now().millisecondsSinceEpoch}';
+
+      // Create user account in Firebase Auth
+      // This will automatically sign in the new patient
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: tempPassword,
+      );
+
+      if (credential.user == null) {
+        throw Exception('Failed to create user account');
+      }
+
+      // Create user document in Firestore with patient-specific fields
+      final patientModel = UserModel(
+        id: credential.user!.uid,
+        email: email,
+        name: name,
+        role: UserRole.patient,
+        createdAt: DateTime.now(),
+        diagnosis: diagnosis,
+        patientPhone: patientPhone,
+        caregiverName: caregiverName,
+        caregiverPhone: caregiverPhone,
+      );
+
+      await saveUser(patientModel);
+
+      // Sign out the newly created patient
+      // NOTE: The therapist will need to sign back in manually
+      // In production, use Admin SDK on backend to avoid this issue
+      await _auth.signOut();
+
+      // TODO: In production, re-authenticate the therapist here
+      // For now, show a message that they need to sign back in
+
+      return patientModel;
+    } catch (e) {
+      print('Error creating patient: $e');
+      // If user creation failed, try to clean up
+      if (_auth.currentUser != null && _auth.currentUser!.email == email) {
+        try {
+          await _auth.currentUser!.delete();
+        } catch (_) {}
+      }
+      rethrow;
+    }
+  }
+
   /// Get patient progress summary
   /// This aggregates scores to create a progress summary
   Future<PatientProgress?> getPatientProgress(String patientId) async {

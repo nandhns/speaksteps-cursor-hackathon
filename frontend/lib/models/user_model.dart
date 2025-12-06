@@ -9,6 +9,11 @@ class UserModel {
   final String name;
   final UserRole role;
   final DateTime createdAt;
+  // Patient-specific fields
+  final String? diagnosis; // Type of aphasia
+  final String? patientPhone; // Patient phone number
+  final String? caregiverName;
+  final String? caregiverPhone;
 
   UserModel({
     required this.id,
@@ -16,6 +21,10 @@ class UserModel {
     required this.name,
     required this.role,
     required this.createdAt,
+    this.diagnosis,
+    this.patientPhone,
+    this.caregiverName,
+    this.caregiverPhone,
   });
 
   // Convert to Map for Firebase
@@ -26,6 +35,10 @@ class UserModel {
       'name': name,
       'role': role.name,
       'createdAt': createdAt.toIso8601String(),
+      'diagnosis': diagnosis,
+      'patientPhone': patientPhone,
+      'caregiverName': caregiverName,
+      'caregiverPhone': caregiverPhone,
     };
   }
 
@@ -42,6 +55,10 @@ class UserModel {
       createdAt: map['createdAt'] != null
           ? DateTime.parse(map['createdAt'])
           : DateTime.now(),
+      diagnosis: map['diagnosis'],
+      patientPhone: map['patientPhone'],
+      caregiverName: map['caregiverName'],
+      caregiverPhone: map['caregiverPhone'],
     );
   }
 }
