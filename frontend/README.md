@@ -1,6 +1,10 @@
-# SpeakSteps - Flutter Web Frontend
+# SpeakSteps - Flutter Application
 
-A Flutter web application for aphasia patients and therapists. Patients can complete exercises, and therapists can monitor their progress in real-time.
+A Flutter application (Web & Android) for aphasia patients and therapists. Patients can complete exercises, and therapists can monitor their progress in real-time.
+
+## Platforms Supported
+- ✅ **Web** - Full-featured web application
+- ✅ **Android** - Native Android app with responsive mobile UI
 
 ## Features
 
@@ -54,9 +58,17 @@ The app works **immediately with mock data** - no Firebase setup needed!
    ```
 
 2. **Run the app:**
+   
+   **For Web:**
    ```bash
    flutter run -d chrome
    ```
+   
+   **For Android:**
+   ```bash
+   flutter run -d android
+   ```
+   See [ANDROID_SETUP.md](ANDROID_SETUP.md) for detailed Android setup instructions.
 
 3. **Test with mock accounts:**
    - Patient: `patient@test.com` (any password)

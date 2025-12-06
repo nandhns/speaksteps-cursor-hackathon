@@ -23,6 +23,7 @@ class AllPatientsReportTab extends StatelessWidget {
       patients,
       allScoresList,
     );
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -50,74 +51,126 @@ class AllPatientsReportTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          // Report Containers (2 rows, 3 columns = 6 containers)
-          Row(
-            children: [
-              Expanded(
-                child: _buildReportContainer(
-                  context,
-                  'Total Patients',
-                  '${patients.length}',
-                  Icons.people,
-                  Colors.blue,
+          // Report Containers - responsive layout
+          if (isMobile) ...[
+            // Mobile: Stack vertically
+            _buildReportContainer(
+              context,
+              'Total Patients',
+              '${patients.length}',
+              Icons.people,
+              Colors.blue,
+            ),
+            const SizedBox(height: 16),
+            _buildReportContainer(
+              context,
+              'Avg Time to Complete',
+              reportData['avgTimeComplete'] ?? 'N/A',
+              Icons.timer,
+              Colors.green,
+            ),
+            const SizedBox(height: 16),
+            _buildReportContainer(
+              context,
+              'Total Time on App',
+              reportData['totalTimeOnApp'] ?? 'N/A',
+              Icons.access_time,
+              Colors.orange,
+            ),
+            const SizedBox(height: 16),
+            _buildListContainer(
+              context,
+              'Question Duration',
+              reportData['questionDurations'] ?? [],
+              Icons.schedule,
+              Colors.purple,
+            ),
+            const SizedBox(height: 16),
+            _buildListContainer(
+              context,
+              'Cue Needed per Question',
+              reportData['cueNeededPerQuestion'] ?? [],
+              Icons.lightbulb,
+              Colors.amber,
+            ),
+            const SizedBox(height: 16),
+            _buildTextContainer(
+              context,
+              'Avg Cue Type',
+              reportData['avgCueType'] ?? 'N/A',
+              Icons.help_outline,
+              Colors.teal,
+            ),
+          ] else ...[
+            // Desktop: 2 rows, 3 columns
+            Row(
+              children: [
+                Expanded(
+                  child: _buildReportContainer(
+                    context,
+                    'Total Patients',
+                    '${patients.length}',
+                    Icons.people,
+                    Colors.blue,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildReportContainer(
-                  context,
-                  'Avg Time to Complete',
-                  reportData['avgTimeComplete'] ?? 'N/A',
-                  Icons.timer,
-                  Colors.green,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildReportContainer(
+                    context,
+                    'Avg Time to Complete',
+                    reportData['avgTimeComplete'] ?? 'N/A',
+                    Icons.timer,
+                    Colors.green,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildReportContainer(
-                  context,
-                  'Total Time on App',
-                  reportData['totalTimeOnApp'] ?? 'N/A',
-                  Icons.access_time,
-                  Colors.orange,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildReportContainer(
+                    context,
+                    'Total Time on App',
+                    reportData['totalTimeOnApp'] ?? 'N/A',
+                    Icons.access_time,
+                    Colors.orange,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildListContainer(
-                  context,
-                  'Question Duration',
-                  reportData['questionDurations'] ?? [],
-                  Icons.schedule,
-                  Colors.purple,
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildListContainer(
+                    context,
+                    'Question Duration',
+                    reportData['questionDurations'] ?? [],
+                    Icons.schedule,
+                    Colors.purple,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildListContainer(
-                  context,
-                  'Cue Needed per Question',
-                  reportData['cueNeededPerQuestion'] ?? [],
-                  Icons.lightbulb,
-                  Colors.amber,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildListContainer(
+                    context,
+                    'Cue Needed per Question',
+                    reportData['cueNeededPerQuestion'] ?? [],
+                    Icons.lightbulb,
+                    Colors.amber,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildTextContainer(
-                  context,
-                  'Avg Cue Type',
-                  reportData['avgCueType'] ?? 'N/A',
-                  Icons.help_outline,
-                  Colors.teal,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildTextContainer(
+                    context,
+                    'Avg Cue Type',
+                    reportData['avgCueType'] ?? 'N/A',
+                    Icons.help_outline,
+                    Colors.teal,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
           const SizedBox(height: 24),
           // Category Breakdown
           Text(

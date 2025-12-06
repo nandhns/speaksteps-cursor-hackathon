@@ -25,23 +25,25 @@ class _TherapistDashboardScreenState extends State<TherapistDashboardScreen> {
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final user = authProvider.currentUser;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Therapist Dashboard'),
         actions: [
-          // View switcher buttons
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildViewButton('All', DashboardView.all),
-                const SizedBox(width: 8),
-                _buildViewButton('By Patient', DashboardView.byPatient),
-              ],
+          // View switcher buttons - show as bottom navigation on mobile
+          if (!isMobile)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildViewButton('All', DashboardView.all),
+                  const SizedBox(width: 8),
+                  _buildViewButton('By Patient', DashboardView.byPatient),
+                ],
+              ),
             ),
-          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
@@ -51,10 +53,56 @@ class _TherapistDashboardScreenState extends State<TherapistDashboardScreen> {
             tooltip: 'Sign out',
           ),
         ],
+        bottom: isMobile
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(48),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildMobileViewButton('All', DashboardView.all),
+                    ),
+                    Expanded(
+                      child: _buildMobileViewButton('By Patient', DashboardView.byPatient),
+                    ),
+                  ],
+                ),
+              )
+            : null,
       ),
       body: _currentView == DashboardView.all
           ? const AllPatientsView()
           : const ByPatientView(),
+    );
+  }
+
+  Widget _buildMobileViewButton(String label, DashboardView view) {
+    final isSelected = _currentView == view;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _currentView = view;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue.shade50 : Colors.transparent,
+          border: Border(
+            bottom: BorderSide(
+              color: isSelected ? Colors.blue : Colors.transparent,
+              width: 3,
+            ),
+          ),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected ? Colors.blue.shade700 : Colors.grey.shade700,
+          ),
+        ),
+      ),
     );
   }
 

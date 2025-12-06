@@ -211,48 +211,109 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildCategoryCard(
-                                context,
-                                ExerciseCategory.animal,
-                                '🐾',
-                                'Animals',
-                                Colors.orange,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildCategoryCard(
-                                context,
-                                ExerciseCategory.bodyParts,
-                                '👤',
-                                'Body Parts',
-                                Colors.pink,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildCategoryCard(
-                                context,
-                                ExerciseCategory.clothing,
-                                '👕',
-                                'Clothing',
-                                Colors.blue,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildCategoryCard(
-                                context,
-                                ExerciseCategory.food,
-                                '🍎',
-                                'Food',
-                                Colors.green,
-                              ),
-                            ),
-                          ],
+                        Builder(
+                          builder: (context) {
+                            final isMobile = MediaQuery.of(context).size.width < 600;
+                            if (isMobile) {
+                              // Mobile: 2x2 grid
+                              return Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildCategoryCard(
+                                          context,
+                                          ExerciseCategory.animal,
+                                          '🐾',
+                                          'Animals',
+                                          Colors.orange,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: _buildCategoryCard(
+                                          context,
+                                          ExerciseCategory.bodyParts,
+                                          '👤',
+                                          'Body Parts',
+                                          Colors.pink,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildCategoryCard(
+                                          context,
+                                          ExerciseCategory.clothing,
+                                          '👕',
+                                          'Clothing',
+                                          Colors.blue,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: _buildCategoryCard(
+                                          context,
+                                          ExerciseCategory.food,
+                                          '🍎',
+                                          'Food',
+                                          Colors.green,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              );
+                            } else {
+                              // Desktop: 1 row
+                              return Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildCategoryCard(
+                                      context,
+                                      ExerciseCategory.animal,
+                                      '🐾',
+                                      'Animals',
+                                      Colors.orange,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildCategoryCard(
+                                      context,
+                                      ExerciseCategory.bodyParts,
+                                      '👤',
+                                      'Body Parts',
+                                      Colors.pink,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildCategoryCard(
+                                      context,
+                                      ExerciseCategory.clothing,
+                                      '👕',
+                                      'Clothing',
+                                      Colors.blue,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildCategoryCard(
+                                      context,
+                                      ExerciseCategory.food,
+                                      '🍎',
+                                      'Food',
+                                      Colors.green,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }
+                          },
                         ),
                       ] else ...[
                         Row(

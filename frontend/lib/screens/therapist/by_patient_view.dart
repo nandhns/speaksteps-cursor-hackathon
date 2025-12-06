@@ -87,61 +87,174 @@ class _ByPatientViewState extends State<ByPatientView>
       return const Center(child: CircularProgressIndicator());
     }
 
-    return Row(
-      children: [
-        // Left sidebar with patient list
-        PatientListSidebar(
-          patients: _filteredAndSortedPatients,
-          selectedPatient: _selectedPatient,
-          searchQuery: _searchQuery,
-          sortAscending: _sortAscending,
-          onSearchChanged: (query) {
-            setState(() {
-              _searchQuery = query;
-            });
-          },
-          onSortChanged: (ascending) {
-            setState(() {
-              _sortAscending = ascending;
-            });
-          },
-          onPatientSelected: _handlePatientSelected,
+    // Check if mobile (screen width < 600)
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
+    if (isMobile) {
+      // Mobile layout: Use drawer for patient list
+      return Scaffold(
+        drawer: Drawer(
+          child: PatientListSidebar(
+            patients: _filteredAndSortedPatients,
+            selectedPatient: _selectedPatient,
+            searchQuery: _searchQuery,
+            sortAscending: _sortAscending,
+            onSearchChanged: (query) {
+              setState(() {
+                _searchQuery = query;
+              });
+            },
+            onSortChanged: (ascending) {
+              setState(() {
+                _sortAscending = ascending;
+              });
+            },
+            onPatientSelected: (patient) {
+              _handlePatientSelected(patient);
+              Navigator.of(context).pop(); // Close drawer
+            },
+          ),
         ),
-        // Right side with tabs
-        Expanded(
-          child: _selectedPatient == null
-              ? const Center(
-                  child: Text('Select a patient to view details'),
-                )
-              : Column(
+        body: _selectedPatient == null
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    TabBar(
-                      controller: _tabController,
-                      tabs: const [
-                        Tab(text: 'Patient Details'),
-                        Tab(text: 'Report'),
-                      ],
-                    ),
-                    Expanded(
-                      child: TabBarView(
-                        controller: _tabController,
-                        children: [
-                          PatientDetailsTab(
-                            patient: _selectedPatient!,
-                            scores: _patientScores,
-                          ),
-                          PatientReportTab(
-                            patient: _selectedPatient!,
-                            scores: _patientScores,
-                          ),
-                        ],
-                      ),
+                    const Icon(Icons.people_outline, size: 64, color: Colors.grey),
+                    const SizedBox(height: 16),
+                    const Text('Select a patient to view details'),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Scaffold.of(context).openDrawer();
+                      },
+                      icon: const Icon(Icons.menu),
+                      label: const Text('Open Patient List'),
                     ),
                   ],
                 ),
-        ),
-      ],
-    );
+              )
+            : Column(
+                children: [
+                  // Patient header with menu button
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    color: Colors.blue.shade50,
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.menu),
+                          onPressed: () {
+                            Scaffold.of(context).openDrawer();
+                          },
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _selectedPatient!.name,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                _selectedPatient!.email,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TabBar(
+                    controller: _tabController,
+                    tabs: const [
+                      Tab(text: 'Details'),
+                      Tab(text: 'Report'),
+                    ],
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        PatientDetailsTab(
+                          patient: _selectedPatient!,
+                          scores: _patientScores,
+                        ),
+                        PatientReportTab(
+                          patient: _selectedPatient!,
+                          scores: _patientScores,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+      );
+    } else {
+      // Desktop layout: Sidebar + content
+      return Row(
+        children: [
+          // Left sidebar with patient list
+          PatientListSidebar(
+            patients: _filteredAndSortedPatients,
+            selectedPatient: _selectedPatient,
+            searchQuery: _searchQuery,
+            sortAscending: _sortAscending,
+            onSearchChanged: (query) {
+              setState(() {
+                _searchQuery = query;
+              });
+            },
+            onSortChanged: (ascending) {
+              setState(() {
+                _sortAscending = ascending;
+              });
+            },
+            onPatientSelected: _handlePatientSelected,
+          ),
+          // Right side with tabs
+          Expanded(
+            child: _selectedPatient == null
+                ? const Center(
+                    child: Text('Select a patient to view details'),
+                  )
+                : Column(
+                    children: [
+                      TabBar(
+                        controller: _tabController,
+                        tabs: const [
+                          Tab(text: 'Patient Details'),
+                          Tab(text: 'Report'),
+                        ],
+                      ),
+                      Expanded(
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            PatientDetailsTab(
+                              patient: _selectedPatient!,
+                              scores: _patientScores,
+                            ),
+                            PatientReportTab(
+                              patient: _selectedPatient!,
+                              scores: _patientScores,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ],
+      );
+    }
   }
 }
 
