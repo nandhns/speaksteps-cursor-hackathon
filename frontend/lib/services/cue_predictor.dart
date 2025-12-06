@@ -1,0 +1,315 @@
+/// SpeakSteps TFLite Cue Predictor
+/// 
+/// Uses tflite_flutter to run on-device inference for predicting
+/// whether a user needs a cue during therapy exercises.
+
+import 'dart:typed_data';
+import 'package:tflite_flutter/tflite_flutter.dart';
+
+/// Input features for the cue prediction model.
+/// 
+/// These must match the features used during model training.
+class CuePredictorInput {
+  final double responseTimeSeconds;
+  final int cueGiven;
+  final int cueStage;
+  final int hintCount;
+  final int difficultyFlag;       // 0 = easy, 1 = hard
+  final int deviceMobileFlag;     // 0 = web, 1 = mobile
+  final int therapistAssignedLevel;
+  final int questionTypeEncoded;
+  final int cueTypeEncoded;
+  final int timeMorning;          // One-hot: time of day
+  final int timeAfternoon;
+  final int timeEvening;
+  final int timeNight;
+  final int moduleComprehension;  // One-hot: module
+  final int moduleWriting;
+  final int catAnimals;           // One-hot: category
+  final int catBodyParts;
+  final int catClothing;
+  final int catFood;
+
+  const CuePredictorInput({
+    required this.responseTimeSeconds,
+    required this.cueGiven,
+    required this.cueStage,
+    required this.hintCount,
+    required this.difficultyFlag,
+    required this.deviceMobileFlag,
+    required this.therapistAssignedLevel,
+    required this.questionTypeEncoded,
+    required this.cueTypeEncoded,
+    required this.timeMorning,
+    required this.timeAfternoon,
+    required this.timeEvening,
+    required this.timeNight,
+    required this.moduleComprehension,
+    required this.moduleWriting,
+    required this.catAnimals,
+    required this.catBodyParts,
+    required this.catClothing,
+    required this.catFood,
+  });
+
+  /// Create input from a simplified feature map
+  factory CuePredictorInput.fromSimple({
+    required double responseTimeSeconds,
+    required int cueGiven,
+    required int cueStage,
+    required int hintCount,
+    required String difficulty,        // "easy" or "hard"
+    required bool isMobile,
+    required int therapistLevel,
+    required String questionType,
+    required String? cueType,
+    required String timeOfDay,         // "morning", "afternoon", "evening", "night"
+    required String module,            // "writing" or "comprehension"
+    required String category,          // "animals", "body_parts", "clothing", "food"
+  }) {
+    return CuePredictorInput(
+      responseTimeSeconds: responseTimeSeconds,
+      cueGiven: cueGiven,
+      cueStage: cueStage,
+      hintCount: hintCount,
+      difficultyFlag: difficulty == 'hard' ? 1 : 0,
+      deviceMobileFlag: isMobile ? 1 : 0,
+      therapistAssignedLevel: therapistLevel,
+      questionTypeEncoded: _encodeQuestionType(questionType),
+      cueTypeEncoded: _encodeCueType(cueType),
+      timeMorning: timeOfDay == 'morning' ? 1 : 0,
+      timeAfternoon: timeOfDay == 'afternoon' ? 1 : 0,
+      timeEvening: timeOfDay == 'evening' ? 1 : 0,
+      timeNight: timeOfDay == 'night' ? 1 : 0,
+      moduleComprehension: module == 'comprehension' ? 1 : 0,
+      moduleWriting: module == 'writing' ? 1 : 0,
+      catAnimals: category == 'animals' ? 1 : 0,
+      catBodyParts: category == 'body_parts' ? 1 : 0,
+      catClothing: category == 'clothing' ? 1 : 0,
+      catFood: category == 'food' ? 1 : 0,
+    );
+  }
+
+  /// Encode question type to integer (must match training encoding)
+  static int _encodeQuestionType(String type) {
+    const encoding = {
+      'category_sorting': 0,
+      'fill_in_blank': 1,
+      'pic_to_word': 2,
+      'sentence_matching': 3,
+      'spelling_choice': 4,
+      'word_completion': 5,
+      'word_to_pic': 6,
+      'yes_no_question': 7,
+    };
+    return encoding[type] ?? 0;
+  }
+
+  /// Encode cue type to integer (must match training encoding)
+  static int _encodeCueType(String? type) {
+    if (type == null || type.isEmpty) return 0; // 'none'
+    const encoding = {
+      'none': 0,
+      'functional': 1,
+      'modeling': 2,
+      'phonemic': 3,
+      'rhyming': 4,
+      'sentence_completion': 5,
+      'spelling': 6,
+      'written_initial': 7,
+    };
+    return encoding[type] ?? 0;
+  }
+
+  /// Convert to feature vector for model input
+  List<double> toFeatureVector() {
+    return [
+      responseTimeSeconds,
+      cueGiven.toDouble(),
+      cueStage.toDouble(),
+      hintCount.toDouble(),
+      difficultyFlag.toDouble(),
+      deviceMobileFlag.toDouble(),
+      therapistAssignedLevel.toDouble(),
+      questionTypeEncoded.toDouble(),
+      cueTypeEncoded.toDouble(),
+      timeMorning.toDouble(),
+      timeAfternoon.toDouble(),
+      timeEvening.toDouble(),
+      timeNight.toDouble(),
+      moduleComprehension.toDouble(),
+      moduleWriting.toDouble(),
+      catAnimals.toDouble(),
+      catBodyParts.toDouble(),
+      catClothing.toDouble(),
+      catFood.toDouble(),
+    ];
+  }
+}
+
+/// Result from cue prediction inference
+class CuePredictionResult {
+  /// Raw probability from model (0.0 to 1.0)
+  final double probability;
+  
+  /// Whether user needs a cue (probability > 0.5)
+  final bool needCue;
+  
+  /// Inference time in milliseconds
+  final int inferenceTimeMs;
+
+  const CuePredictionResult({
+    required this.probability,
+    required this.needCue,
+    required this.inferenceTimeMs,
+  });
+
+  @override
+  String toString() {
+    return 'CuePredictionResult(probability: ${probability.toStringAsFixed(4)}, '
+           'needCue: $needCue, inferenceTimeMs: $inferenceTimeMs)';
+  }
+}
+
+/// TFLite-based cue predictor for SpeakSteps
+/// 
+/// Usage:
+/// ```dart
+/// final predictor = CuePredictor();
+/// await predictor.loadModel();
+/// final result = predictor.predict(input);
+/// predictor.dispose();
+/// ```
+class CuePredictor {
+  /// TFLite interpreter instance
+  Interpreter? _interpreter;
+  
+  /// Whether the model is loaded and ready
+  bool get isLoaded => _interpreter != null;
+  
+  /// Number of input features expected by the model
+  static const int inputFeatureCount = 19;
+  
+  /// Probability threshold for cue decision
+  static const double threshold = 0.5;
+
+  /// Load the TFLite model from assets
+  /// 
+  /// Must be called before [predict]. The model file should be at
+  /// `assets/model.tflite` and registered in pubspec.yaml.
+  Future<void> loadModel() async {
+    try {
+      // Load model from assets folder
+      _interpreter = await Interpreter.fromAsset('model.tflite');
+      
+      // Log model info
+      final inputShape = _interpreter!.getInputTensor(0).shape;
+      final outputShape = _interpreter!.getOutputTensor(0).shape;
+      print('CuePredictor: Model loaded successfully');
+      print('  Input shape: $inputShape');
+      print('  Output shape: $outputShape');
+    } catch (e) {
+      print('CuePredictor: Failed to load model: $e');
+      rethrow;
+    }
+  }
+
+  /// Preprocess input features into model-ready tensor
+  /// 
+  /// Converts [CuePredictorInput] to a Float32List shaped (1, N)
+  Float32List _preprocess(CuePredictorInput input) {
+    final features = input.toFeatureVector();
+    
+    // Validate feature count
+    if (features.length != inputFeatureCount) {
+      throw ArgumentError(
+        'Expected $inputFeatureCount features, got ${features.length}'
+      );
+    }
+    
+    // Convert to Float32List for TFLite
+    return Float32List.fromList(features);
+  }
+
+  /// Run inference and predict cue need
+  /// 
+  /// Returns [CuePredictionResult] with probability and boolean decision.
+  /// Throws if model is not loaded.
+  CuePredictionResult predict(CuePredictorInput input) {
+    if (_interpreter == null) {
+      throw StateError('Model not loaded. Call loadModel() first.');
+    }
+
+    final stopwatch = Stopwatch()..start();
+
+    // Preprocess input
+    final inputData = _preprocess(input);
+    
+    // Reshape to (1, N) for batch dimension
+    final inputTensor = inputData.reshape([1, inputFeatureCount]);
+    
+    // Prepare output buffer - shape (1, 1) for single probability
+    final outputTensor = Float32List(1).reshape([1, 1]);
+
+    // Run inference
+    _interpreter!.run(inputTensor, outputTensor);
+
+    stopwatch.stop();
+
+    // Extract probability from output
+    final probability = (outputTensor[0] as List<double>)[0];
+    
+    // Apply threshold
+    final needCue = probability > threshold;
+
+    return CuePredictionResult(
+      probability: probability,
+      needCue: needCue,
+      inferenceTimeMs: stopwatch.elapsedMilliseconds,
+    );
+  }
+
+  /// Run inference with raw feature vector
+  /// 
+  /// Use this if you've already prepared the feature vector.
+  CuePredictionResult predictFromVector(List<double> features) {
+    if (_interpreter == null) {
+      throw StateError('Model not loaded. Call loadModel() first.');
+    }
+
+    if (features.length != inputFeatureCount) {
+      throw ArgumentError(
+        'Expected $inputFeatureCount features, got ${features.length}'
+      );
+    }
+
+    final stopwatch = Stopwatch()..start();
+
+    // Convert to tensor
+    final inputTensor = Float32List.fromList(features).reshape([1, inputFeatureCount]);
+    final outputTensor = Float32List(1).reshape([1, 1]);
+
+    // Run inference
+    _interpreter!.run(inputTensor, outputTensor);
+
+    stopwatch.stop();
+
+    final probability = (outputTensor[0] as List<double>)[0];
+
+    return CuePredictionResult(
+      probability: probability,
+      needCue: probability > threshold,
+      inferenceTimeMs: stopwatch.elapsedMilliseconds,
+    );
+  }
+
+  /// Release model resources
+  /// 
+  /// Call this when the predictor is no longer needed.
+  void dispose() {
+    _interpreter?.close();
+    _interpreter = null;
+    print('CuePredictor: Model disposed');
+  }
+}
+

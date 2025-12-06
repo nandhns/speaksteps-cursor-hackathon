@@ -1,0 +1,42 @@
+question_id,module,category,item,correct_answer,difficulty,expected_time_seconds,item_familiarity_score,notes
+Q_001_animals_dog,writing,animals,dog,dog,easy,8,0.95,High-frequency; 1 syllable; highly imageable
+Q_002_animals_cat,writing,animals,cat,cat,easy,8,0.90,Very common pet; simple phonology
+Q_003_animals_bird,writing,animals,bird,bird,easy,10,0.85,Common; single syllable
+Q_004_animals_fish,writing,animals,fish,fish,easy,9,0.85,Common; single syllable
+Q_005_animals_horse,writing,animals,horse,horse,easy,12,0.70,Less common than pets but familiar
+Q_006_animals_cow,writing,animals,cow,cow,easy,10,0.75,Farm animal; common in media
+Q_007_animals_pig,writing,animals,pig,pig,easy,9,0.70,Farm animal; common in media
+Q_008_animals_duck,writing,animals,duck,duck,easy,10,0.65,Less common; simple phonology
+Q_009_animals_frog,writing,animals,frog,frog,hard,15,0.55,Less common; consonant cluster
+Q_010_animals_lion,writing,animals,lion,lion,hard,14,0.60,Zoo animal; 2 syllables
+Q_011_body_parts_hand,comprehension,body_parts,hand,hand,easy,7,0.98,Extremely high frequency
+Q_012_body_parts_foot,comprehension,body_parts,foot,foot,easy,8,0.95,Very high frequency
+Q_013_body_parts_arm,comprehension,body_parts,arm,arm,easy,8,0.95,Very high frequency
+Q_014_body_parts_leg,comprehension,body_parts,leg,leg,easy,8,0.95,Very high frequency
+Q_015_body_parts_head,comprehension,body_parts,head,head,easy,7,0.98,Extremely high frequency
+Q_016_body_parts_eye,comprehension,body_parts,eye,eye,easy,8,0.95,Very high frequency
+Q_017_body_parts_ear,comprehension,body_parts,ear,ear,easy,8,0.90,High frequency
+Q_018_body_parts_nose,comprehension,body_parts,nose,nose,easy,9,0.90,High frequency
+Q_019_body_parts_mouth,comprehension,body_parts,mouth,mouth,easy,10,0.90,High frequency; diphthong may add difficulty
+Q_020_body_parts_knee,comprehension,body_parts,knee,knee,hard,14,0.75,Less prominent; silent K
+Q_021_clothing_shirt,writing,clothing,shirt,shirt,easy,10,0.90,Daily use item
+Q_022_clothing_pants,writing,clothing,pants,pants,easy,10,0.90,Daily use item
+Q_023_clothing_dress,writing,clothing,dress,dress,easy,12,0.80,Common; consonant cluster
+Q_024_clothing_shoe,writing,clothing,shoe,shoe,easy,9,0.95,Very common; single syllable
+Q_025_clothing_hat,writing,clothing,hat,hat,easy,8,0.85,Common accessory
+Q_026_clothing_sock,writing,clothing,sock,sock,easy,9,0.85,Daily use; single syllable
+Q_027_clothing_jacket,writing,clothing,jacket,jacket,hard,16,0.75,2 syllables; less frequent than shirt
+Q_028_clothing_coat,writing,clothing,coat,coat,easy,10,0.80,Common; single syllable
+Q_029_clothing_glove,writing,clothing,glove,glove,hard,18,0.55,Seasonal; consonant cluster
+Q_030_clothing_belt,writing,clothing,belt,belt,hard,15,0.65,Less visually prominent; consonant cluster
+Q_031_food_apple,comprehension,food,apple,apple,easy,9,0.90,Very common fruit
+Q_032_food_bread,comprehension,food,bread,bread,easy,10,0.95,Daily staple; consonant cluster
+Q_033_food_milk,comprehension,food,milk,milk,easy,8,0.95,Daily staple
+Q_034_food_egg,comprehension,food,egg,egg,easy,7,0.95,Daily staple; very short
+Q_035_food_rice,comprehension,food,rice,rice,easy,9,0.85,Common staple
+Q_036_food_cheese,comprehension,food,cheese,cheese,easy,10,0.80,Common; simple phonology
+Q_037_food_banana,comprehension,food,banana,banana,hard,18,0.85,3 syllables; phonologically complex
+Q_038_food_orange,comprehension,food,orange,orange,hard,16,0.80,2 syllables; may confuse with color
+Q_039_food_carrot,comprehension,food,carrot,carrot,hard,15,0.70,2 syllables; less common than apple
+Q_040_food_cake,comprehension,food,cake,cake,easy,9,0.85,Common; single syllable
+
