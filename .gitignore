@@ -99,3 +99,20 @@ firebase-debug.log
 *.temp
 .env.local
 .env.*.local
+
+# Backend
+backend/node_modules/
+
+# Flutter / Dart
+frontend/build/
+frontend/.dart_tool/
+
+# General
+*.log
+.DS_Store
+
+
+# Secrets
+backend/serviceAccountKey.json
+frontend/android/app/google-services.json
+backend/firestore-backup.json
