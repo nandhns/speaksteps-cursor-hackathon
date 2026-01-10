@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../models/exercise_model.dart';
 import '../../models/exercise_score_model.dart';
+import '../../l10n/app_strings.dart';
 
 class ExerciseScreen extends StatefulWidget {
   final Exercise exercise;
@@ -250,9 +250,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    'Submit Answer',
-                    style: TextStyle(fontSize: 16),
+                  child: Text(
+                    AppStrings(Localizations.localeOf(context).languageCode).submit,
+                    style: const TextStyle(fontSize: 16),
                   ),
                 ),
               ),

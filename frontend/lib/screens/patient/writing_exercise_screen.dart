@@ -4,18 +4,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../models/exercise_model.dart';
 import '../../models/exercise_score_model.dart';
+import '../../models/question_response_model.dart';
+import '../../models/exercise_session_model.dart';
 import '../../utils/image_helper.dart';
-import '../../services/cue_predictor.dart';
+import '../../services/cue_predictor_factory.dart';
+import '../../services/app_service.dart';
+import '../../widgets/dialogs/exit_confirmation_dialog.dart';
+import '../../l10n/app_strings.dart';
 
 class WritingExerciseScreen extends StatefulWidget {
   final Exercise exercise;
   final String patientId;
+  final String? therapistId; // Linked therapist for this patient
   final Function(ExerciseScore) onComplete;
 
   const WritingExerciseScreen({
     super.key,
     required this.exercise,
     required this.patientId,
+    this.therapistId,
     required this.onComplete,
   });
 
@@ -32,18 +39,31 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
   Timer? _mlCheckTimer;
   int _cueLevel = 0; // 0 = none, 1 = function, 2 = rhyming, 3 = written
   String? _currentCue;
+  String? _currentCueType;
+  int? _cueWaitSeconds;
+  DateTime? _cueDisplayedAt; // Track when cue was displayed
   int _currentQuestionIndex = 0;
   int _correctAnswers = 0;
   List<bool> _questionResults = [];
   CuePredictor? _cuePredictor;
   bool _mlModelLoaded = false;
   int _hintCount = 0;
+  
+  // Session tracking for per-question data storage
+  late String _sessionId;
+  late AppService _appService;
+  final List<QuestionResponse> _questionResponses = [];
 
   @override
   void initState() {
     super.initState();
     _startTime = DateTime.now();
     _questionStartTime = DateTime.now();
+    
+    // Initialize session ID for tracking all questions in this exercise session
+    _sessionId = '${widget.patientId}_${widget.exercise.id}_${DateTime.now().millisecondsSinceEpoch}';
+    _appService = ServiceFactory.createService();
+    
     final questions = widget.exercise.questions;
     if (questions.isEmpty) {
       // Fallback: create a single question from exercise data
@@ -58,13 +78,7 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
   }
 
   Future<void> _initializeML() async {
-    // Only load ML model on mobile devices (TFLite doesn't work on web)
-    if (kIsWeb) {
-      // Fallback to timer-based on web
-      _startCueTimer();
-      return;
-    }
-
+    // CuePredictor now works on ALL platforms (web uses rule-based prediction)
     try {
       _cuePredictor = CuePredictor();
       await _cuePredictor!.loadModel();
@@ -72,8 +86,8 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
         _mlModelLoaded = true;
       });
     } catch (e) {
-      print('Failed to load ML model, using timer-based cues: $e');
-      // Fallback to timer-based if ML fails
+      print('Failed to load predictor, using timer-based cues: $e');
+      // Fallback to timer-based if predictor fails
       _startCueTimer();
     }
   }
@@ -95,7 +109,51 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
     return questions[_currentQuestionIndex];
   }
 
+  /// Generate a fallback cue when cue hierarchy is incomplete
+  String _generateFallbackCue(String cueType, String correctAnswer) {
+    // Sanitize the correct answer
+    final word = correctAnswer.toLowerCase().trim();
+    
+    switch (cueType) {
+      case 'functional':
+        return 'This word describes an action or thing you can use.';
+      case 'rhyming':
+        // Generate rhyming hint - find words that rhyme with the answer
+        if (word.length >= 2) {
+          final lastTwoChars = word.substring(word.length - 2);
+          return 'It rhymes with words ending in "-$lastTwoChars"';
+        }
+        return 'Think of a word that rhymes with this sound.';
+      case 'written_initial':
+        // Provide partial spelling hint
+        if (word.isNotEmpty) {
+          final firstLetter = word[0].toLowerCase();
+          final underscores = '_ ' * (word.length - 1);
+          return '$firstLetter $underscores'.trim();
+        }
+        return 'Look at the first letter of the word.';
+      case 'spelling':
+        // Spell out the word
+        if (word.isNotEmpty) {
+          return word.split('').join('-');
+        }
+        return 'Listen to how the word is spelled.';
+      case 'sentence_completion':
+        return 'Try to use this word in a sentence.';
+      case 'phonemic':
+        // First sound/syllable
+        if (word.isNotEmpty) {
+          final firstChar = word[0];
+          return 'It starts with "$firstChar"...';
+        }
+        return 'Think about the first sound.';
+      default:
+        return 'Try to remember the word we practiced.';
+    }
+  }
+
   /// Start ML-based cue system (checks every 2 seconds)
+
   void _startMLBasedCueSystem() {
     if (!_mlModelLoaded) {
       // Fallback to timer if ML not loaded
@@ -136,7 +194,46 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
       timeOfDay = 'night';
     }
 
-    // Prepare ML input
+    // Prepare ML input with category mapping
+    String categoryName = widget.exercise.category.name;
+    // Map frontend categories to backend canonical names
+    const categoryMap = {
+      'haiwan': 'animals',
+      'animal': 'animals',
+      'bodyParts': 'body_parts',
+      'pakaian': 'clothing',
+      'makanan': 'food',
+    };
+    categoryName = categoryMap[categoryName] ?? categoryName;
+
+    // Map cue level to cue type name
+    String? currentCueType;
+    switch (_cueLevel) {
+      case 0:
+        currentCueType = 'none';
+        break;
+      case 1:
+        currentCueType = 'functional';
+        break;
+      case 2:
+        currentCueType = 'rhyming';
+        break;
+      case 3:
+        currentCueType = 'written_initial';
+        break;
+      case 4:
+        currentCueType = 'spelling';
+        break;
+      case 5:
+        currentCueType = 'sentence_completion';
+        break;
+      case 6:
+        currentCueType = 'phonemic';
+        break;
+      default:
+        currentCueType = null;
+    }
+
     final input = CuePredictorInput.fromSimple(
       responseTimeSeconds: responseTime,
       cueGiven: _cueLevel > 0 ? 1 : 0,
@@ -146,45 +243,94 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
       isMobile: !kIsWeb && (Platform.isAndroid || Platform.isIOS),
       therapistLevel: 3, // Default level
       questionType: 'pic_to_word', // Writing exercise
-      cueType: _cueLevel == 1 ? 'functional' : _cueLevel == 2 ? 'rhyming' : _cueLevel == 3 ? 'written_initial' : null,
+      cueType: currentCueType,
       timeOfDay: timeOfDay,
       module: 'writing',
-      category: widget.exercise.category.name,
+      category: categoryName,
     );
 
     try {
       final prediction = _cuePredictor!.predict(input);
       
-      // If ML predicts cue is needed and we haven't shown this level yet
-      if (prediction.needCue && _cueLevel == 0) {
-        // Show function cue
+      // Time-based cue progression (ML suggestion is considered but not blocking)
+      // Level 1: Functional (5s)
+      // Level 2: Rhyming (15s)
+      // Level 3: Written Initial (25s)
+      // Level 4: Spelling (35s)
+      // Level 5: Sentence Completion (45s)
+      // Level 6: Phonemic/First Sound (55s)
+      
+      if (_cueLevel == 0 && responseTime >= 5) {
+        // Level 1: Functional cue at 5s
         setState(() {
           _cueLevel = 1;
-          _currentCue = currentQuestion.cueHierarchy?['function'];
+          _currentCue = currentQuestion.cueHierarchy?['functional'] ?? 
+                        _generateFallbackCue('functional', currentQuestion.correctAnswer);
           _hintCount++;
         });
         if (_currentCue != null) {
-          _showCue('Function Cue', _currentCue!);
+          _showCue('Functional Cue', _currentCue!);
+          print('DEBUG: Level 1 - Functional cue shown (time: ${responseTime}s)');
         }
-      } else if (prediction.needCue && _cueLevel == 1 && responseTime > 10) {
-        // Show rhyming cue after function cue
+      } else if (_cueLevel == 1 && responseTime >= 15) {
+        // Level 2: Rhyming cue at 15s
         setState(() {
           _cueLevel = 2;
-          _currentCue = currentQuestion.cueHierarchy?['rhyming'];
+          _currentCue = currentQuestion.cueHierarchy?['rhyming'] ?? 
+                        _generateFallbackCue('rhyming', currentQuestion.correctAnswer);
           _hintCount++;
         });
         if (_currentCue != null) {
           _showCue('Rhyming Cue', _currentCue!);
+          print('DEBUG: Level 2 - Rhyming cue shown (time: ${responseTime}s)');
         }
-      } else if (prediction.needCue && _cueLevel == 2 && responseTime > 20) {
-        // Show written cue after rhyming cue
+      } else if (_cueLevel == 2 && responseTime >= 25) {
+        // Level 3: Written initial cue at 25s
         setState(() {
           _cueLevel = 3;
-          _currentCue = currentQuestion.cueHierarchy?['written'];
+          _currentCue = currentQuestion.cueHierarchy?['written_initial'] ?? 
+                        _generateFallbackCue('written_initial', currentQuestion.correctAnswer);
           _hintCount++;
         });
         if (_currentCue != null) {
           _showCue('Written Cue', _currentCue!);
+          print('DEBUG: Level 3 - Written initial cue shown (time: ${responseTime}s)');
+        }
+      } else if (_cueLevel == 3 && responseTime >= 35) {
+        // Level 4: Spelling cue at 35s
+        setState(() {
+          _cueLevel = 4;
+          _currentCue = currentQuestion.cueHierarchy?['spelling'] ?? 
+                        _generateFallbackCue('spelling', currentQuestion.correctAnswer);
+          _hintCount++;
+        });
+        if (_currentCue != null) {
+          _showCue('Spelling Cue', _currentCue!);
+          print('DEBUG: Level 4 - Spelling cue shown (time: ${responseTime}s)');
+        }
+      } else if (_cueLevel == 4 && responseTime >= 45) {
+        // Level 5: Sentence completion cue at 45s
+        setState(() {
+          _cueLevel = 5;
+          _currentCue = currentQuestion.cueHierarchy?['sentence_completion'] ?? 
+                        _generateFallbackCue('sentence_completion', currentQuestion.correctAnswer);
+          _hintCount++;
+        });
+        if (_currentCue != null) {
+          _showCue('Sentence Completion', _currentCue!);
+          print('DEBUG: Level 5 - Sentence completion cue shown (time: ${responseTime}s)');
+        }
+      } else if (_cueLevel == 5 && responseTime >= 55) {
+        // Level 6: Phonemic/First sound cue at 55s
+        setState(() {
+          _cueLevel = 6;
+          _currentCue = currentQuestion.cueHierarchy?['phonemic'] ?? 
+                        _generateFallbackCue('phonemic', currentQuestion.correctAnswer);
+          _hintCount++;
+        });
+        if (_currentCue != null) {
+          _showCue('First Sound', _currentCue!);
+          print('DEBUG: Level 6 - Phonemic cue shown (time: ${responseTime}s)');
         }
       }
     } catch (e) {
@@ -207,6 +353,8 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
         setState(() {
           _cueLevel = 1;
           _currentCue = currentQuestion.cueHierarchy?['function'];
+          _currentCueType = 'functional';
+          _cueWaitSeconds = 15; // First cue after 15 seconds
           _hintCount++;
         });
         if (_currentCue != null) {
@@ -219,6 +367,7 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
             setState(() {
               _cueLevel = 2;
               _currentCue = currentQuestion.cueHierarchy?['rhyming'];
+              _currentCueType = 'rhyming';
               _hintCount++;
             });
             if (_currentCue != null) {
@@ -231,6 +380,7 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
                 setState(() {
                   _cueLevel = 3;
                   _currentCue = currentQuestion.cueHierarchy?['written'];
+                  _currentCueType = 'written_initial';
                   _hintCount++;
                 });
                 if (_currentCue != null) {
@@ -246,6 +396,9 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
 
   void _showCue(String title, String cue) {
     if (!mounted) return;
+    
+    // Track when cue was displayed
+    _cueDisplayedAt = DateTime.now();
     
     // Use a post-frame callback to ensure context is valid
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -330,8 +483,8 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
     final answer = _answerController.text.trim();
     if (answer.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please type your answer'),
+        SnackBar(
+          content: Text(AppStrings(Localizations.localeOf(context).languageCode).pleaseSelectAnswer),
           backgroundColor: Colors.orange,
         ),
       );
@@ -343,12 +496,53 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
 
     _cueTimer?.cancel();
     
+    // Calculate response time for this question
+    final responseTime = DateTime.now().difference(_questionStartTime!).inSeconds;
+    
     // Check if answer is correct
     final isCorrect = answer.toLowerCase() == currentQuestion.correctAnswer.toLowerCase();
     _questionResults[_currentQuestionIndex] = isCorrect;
     if (isCorrect) {
       _correctAnswers++;
     }
+    
+    // Create and save per-question response data
+    // Calculate time after cue was displayed (if cue was given)
+    int? timeAfterCue;
+    if (_cueDisplayedAt != null) {
+      timeAfterCue = DateTime.now().difference(_cueDisplayedAt!).inSeconds;
+    }
+    
+    final questionResponse = QuestionResponse(
+      id: '${_sessionId}_q$_currentQuestionIndex',
+      sessionId: _sessionId,
+      patientId: widget.patientId,
+      therapistId: widget.therapistId ?? '',
+      exerciseId: widget.exercise.id,
+      questionIndex: _currentQuestionIndex,
+      questionText: currentQuestion.correctAnswer, // Use correctAnswer as the question text
+      questionImageUrl: currentQuestion.imageUrl,
+      userAnswer: answer,
+      correctAnswer: currentQuestion.correctAnswer,
+      isCorrect: isCorrect,
+      presentedAt: _questionStartTime!,
+      respondedAt: DateTime.now(),
+      responseTimeSeconds: responseTime,
+      cueGiven: _cueLevel > 0,
+      cueType: _currentCueType,
+      cueStage: _cueLevel,
+      cueWaitSeconds: _cueWaitSeconds,
+      timeAfterCueDisplayed: timeAfterCue,
+      hintCount: _hintCount,
+      difficulty: widget.exercise.difficulty.toString(), // Convert int to String
+      category: widget.exercise.category.name,
+      module: 'writing',
+    );
+    
+    _questionResponses.add(questionResponse);
+    
+    // Save to database asynchronously
+    _appService.saveQuestionResponse(questionResponse.toMap());
 
     // Show feedback
     setState(() => _isSubmitted = true);
@@ -390,6 +584,8 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
           _isSubmitted = false;
           _cueLevel = 0;
           _currentCue = null;
+          _currentCueType = null;
+          _cueWaitSeconds = null;
           _hintCount = 0;
           _questionStartTime = DateTime.now();
         });
@@ -419,6 +615,9 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
         );
 
         widget.onComplete(exerciseScore);
+        
+        // Save comprehensive session data
+        _saveSessionData(timeTaken, totalQuestions);
 
         // Show final result
         Future.delayed(const Duration(milliseconds: 500), () {
@@ -427,21 +626,23 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
               context: context,
               builder: (context) => AlertDialog(
                 title: Text(_correctAnswers == totalQuestions ? 'Excellent! 🎉' : 'Good Job! 💪'),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'You got $_correctAnswers out of $totalQuestions questions correct!',
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Score: $_correctAnswers/$totalQuestions',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: _correctAnswers == totalQuestions ? Colors.green : Colors.orange,
-                          ),
-                    ),
-                  ],
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'You got $_correctAnswers out of $totalQuestions questions correct!',
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Score: $_correctAnswers/$totalQuestions',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: _correctAnswers == totalQuestions ? Colors.green : Colors.orange,
+                            ),
+                      ),
+                    ],
+                  ),
                 ),
                 actions: [
                   TextButton(
@@ -465,39 +666,53 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
     final currentQuestion = _currentQuestion;
     final totalQuestions = widget.exercise.questions.length;
     final questionNumber = _currentQuestionIndex + 1;
+    final bool isExerciseComplete = _currentQuestionIndex >= totalQuestions;
     
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(widget.exercise.title),
-            if (totalQuestions > 1)
-              Text(
-                'Question $questionNumber of $totalQuestions',
-                style: const TextStyle(fontSize: 12),
+    return PopScope(
+      canPop: isExerciseComplete,
+      onPopInvoked: (bool didPop) async {
+        if (didPop) return;
+        
+        // Show confirmation dialog before exiting incomplete exercise
+        final shouldExit = await showExitConfirmationDialog(context);
+        if (shouldExit && context.mounted) {
+          // Save current progress before exiting
+          await _saveIncompleteProgress();
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(widget.exercise.title),
+              if (totalQuestions > 1)
+                Text(
+                  'Question $questionNumber of $totalQuestions',
+                  style: const TextStyle(fontSize: 12),
+                ),
+            ],
+          ),
+          actions: [
+            if (_cueLevel > 0)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Chip(
+                  label: Text(
+                    _cueLevel == 1
+                        ? 'Function Cue'
+                        : _cueLevel == 2
+                            ? 'Rhyming Cue'
+                            : 'Written Cue',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  backgroundColor: Colors.blue.shade100,
+                ),
               ),
           ],
         ),
-        actions: [
-          if (_cueLevel > 0)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Chip(
-                label: Text(
-                  _cueLevel == 1
-                      ? 'Function Cue'
-                      : _cueLevel == 2
-                          ? 'Rhyming Cue'
-                          : 'Written Cue',
-                  style: const TextStyle(fontSize: 12),
-                ),
-                backgroundColor: Colors.blue.shade100,
-              ),
-            ),
-        ],
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -640,16 +855,134 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    'Submit Answer',
-                    style: TextStyle(fontSize: 16),
+                  child: Text(
+                    AppStrings(Localizations.localeOf(context).languageCode).submit,
+                    style: const TextStyle(fontSize: 16),
                   ),
                 ),
               ),
           ],
         ),
-      ),
+      ),  // Closes Scaffold body SingleChildScrollView
+    ),    // Closes Scaffold
+    );   // Closes PopScope
+  }
+  
+  /// Save comprehensive session data including timing and cue usage
+  void _saveSessionData(int totalTimeSeconds, int totalQuestions) {
+    // Calculate cue statistics
+    final totalCuesGiven = _questionResponses.fold<int>(
+      0, (sum, response) => sum + response.hintCount
     );
+    final questionsWithCues = _questionResponses.where((r) => r.cueGiven).length;
+    
+    // Count cue types used
+    final cueTypeCount = <String, int>{};
+    for (final response in _questionResponses) {
+      if (response.cueType != null) {
+        cueTypeCount[response.cueType!] = (cueTypeCount[response.cueType!] ?? 0) + 1;
+      }
+    }
+    
+    final session = ExerciseSession(
+      id: _sessionId,
+      patientId: widget.patientId,
+      therapistId: widget.therapistId ?? '',
+      exerciseId: widget.exercise.id,
+      exerciseTitle: widget.exercise.title,
+      module: 'writing',
+      category: widget.exercise.category.name,
+      startTime: _startTime!,
+      endTime: DateTime.now(),
+      totalTimeSeconds: totalTimeSeconds,
+      activeTimeSeconds: totalTimeSeconds, // For now, assume all time is active
+      totalQuestions: totalQuestions,
+      correctAnswers: _correctAnswers,
+      incorrectAnswers: totalQuestions - _correctAnswers,
+      questionsSkipped: 0,
+      accuracyPercentage: (_correctAnswers / totalQuestions * 100),
+      totalCuesGiven: totalCuesGiven,
+      questionsWithCues: questionsWithCues,
+      cueTypeCount: cueTypeCount,
+      deviceType: kIsWeb ? 'web' : (Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : 'other'),
+      metadata: {
+        'mlModelUsed': _mlModelLoaded,
+        'exerciseDifficulty': widget.exercise.difficulty,
+      },
+    );
+    
+    // Save session data asynchronously
+    _appService.saveExerciseSession(session.toMap());
+  }
+
+  /// Save progress when user exits before completing the exercise
+  Future<void> _saveIncompleteProgress() async {
+    if (_startTime == null || _questionResponses.isEmpty) return;
+
+    final int totalTimeSeconds = DateTime.now().difference(_startTime!).inSeconds;
+    final totalQuestions = widget.exercise.questions.length;
+
+    // Count cues given across all answered questions
+    int totalCuesGiven = 0;
+    int questionsWithCues = 0;
+    Map<String, int> cueTypeCount = {};
+
+    for (var response in _questionResponses) {
+      if (response.cueGiven) {
+        totalCuesGiven++;
+        questionsWithCues++;
+        final cueType = response.cueType ?? 'unknown';
+        cueTypeCount[cueType] = (cueTypeCount[cueType] ?? 0) + 1;
+      }
+    }
+
+    // Create partial session with data up to current question
+    final session = ExerciseSession(
+      id: '${_sessionId}_incomplete',
+      patientId: widget.patientId,
+      therapistId: widget.therapistId ?? '',
+      exerciseId: widget.exercise.id,
+      exerciseTitle: widget.exercise.title,
+      module: 'writing',
+      category: widget.exercise.category.name,
+      startTime: _startTime!,
+      endTime: DateTime.now(),
+      totalTimeSeconds: totalTimeSeconds,
+      activeTimeSeconds: totalTimeSeconds,
+      totalQuestions: _currentQuestionIndex + 1, // Questions attempted
+      correctAnswers: _correctAnswers,
+      incorrectAnswers: (_currentQuestionIndex + 1) - _correctAnswers,
+      questionsSkipped: 0,
+      accuracyPercentage: (_currentQuestionIndex + 1) > 0
+          ? (_correctAnswers / (_currentQuestionIndex + 1) * 100)
+          : 0,
+      totalCuesGiven: totalCuesGiven,
+      questionsWithCues: questionsWithCues,
+      cueTypeCount: cueTypeCount,
+      deviceType: kIsWeb
+          ? 'web'
+          : (Platform.isAndroid
+              ? 'android'
+              : Platform.isIOS
+                  ? 'ios'
+                  : 'other'),
+      metadata: {
+        'mlModelUsed': _mlModelLoaded,
+        'exerciseDifficulty': widget.exercise.difficulty,
+        'incomplete': true, // Mark as incomplete
+        'questionsAttempted': _currentQuestionIndex + 1,
+        'totalQuestions': totalQuestions,
+      },
+    );
+
+    // Save incomplete session
+    await _appService.saveExerciseSession(session.toMap());
+
+    // Also save any question responses not yet saved
+    if (_questionResponses.isNotEmpty) {
+      await _appService.saveQuestionResponses(
+        _questionResponses.map((r) => r.toMap()).toList(),
+      );
+    }
   }
 }
-

@@ -30,24 +30,37 @@ class CueType(Enum):
     NO_CUE = "no_cue"
     FUNCTIONAL = "functional"
     RHYMING = "rhyming"
-    SENTENCE_COMPLETION = "sentence_completion"
     WRITTEN_INITIAL = "written_initial"
     SPELLING = "spelling"
+    SENTENCE_COMPLETION = "sentence_completion"
     PHONEMIC = "phonemic"
     MODELING = "modeling"
 
 
 # Cue hierarchy (lower index = less support)
+# Based on therapeutic hierarchy: Function → Rhyme → Written → Spelling → Sentence → Phonemic → Model
 CUE_HIERARCHY = [
-    CueType.NO_CUE,
-    CueType.FUNCTIONAL,
-    CueType.RHYMING,
-    CueType.SENTENCE_COMPLETION,
-    CueType.WRITTEN_INITIAL,
-    CueType.SPELLING,
-    CueType.PHONEMIC,
-    CueType.MODELING,
+    CueType.NO_CUE,           # 0 - No assistance
+    CueType.FUNCTIONAL,       # 1 - "you use this to buy things"
+    CueType.RHYMING,          # 2 - "it rhymes with honey"
+    CueType.WRITTEN_INITIAL,  # 3 - "m _ _ _ _"
+    CueType.SPELLING,         # 4 - "m-o-n-e-y"
+    CueType.SENTENCE_COMPLETION,  # 5 - "I need to earn some ______"
+    CueType.PHONEMIC,         # 6 - "It starts with muh..."
+    CueType.MODELING,         # 7 - Full word "money"
 ]
+
+# Timing for each cue level (in seconds from start or previous cue)
+CUE_TIMING = {
+    CueType.NO_CUE: 0,
+    CueType.FUNCTIONAL: 10,       # Show after 10 seconds
+    CueType.RHYMING: 8,           # Show 8 seconds after function cue
+    CueType.WRITTEN_INITIAL: 8,   # Show 8 seconds after rhyming cue
+    CueType.SPELLING: 8,          # Show 8 seconds after written cue
+    CueType.SENTENCE_COMPLETION: 8,  # Show 8 seconds after spelling
+    CueType.PHONEMIC: 8,          # Show 8 seconds after sentence
+    CueType.MODELING: 8,          # Show 8 seconds after phonemic
+}
 
 CUE_TYPE_TO_STAGE = {cue: idx for idx, cue in enumerate(CUE_HIERARCHY)}
 
@@ -68,13 +81,24 @@ class FeatureDict:
 
 
 # =============================================================================
-# MOCK ML PREDICTION FUNCTION
+# ML PREDICTION FUNCTION
 # =============================================================================
+
+# Try to import real ML predictor
+try:
+    from ml_predictor import create_predictor
+    _ml_predictor = create_predictor(use_real_ml=True)
+    ML_AVAILABLE = True
+except Exception as e:
+    print(f"⚠️  ML predictor not available: {e}")
+    _ml_predictor = None
+    ML_AVAILABLE = False
+
 
 def ml_predict_need_cue(features: Dict) -> int:
     """
-    Mock ML prediction function.
-    In production, this would load the TFLite model and run inference.
+    ML prediction function using trained TFLite model.
+    Falls back to rule-based heuristic if ML not available.
     
     Args:
         features: Dictionary of input features
@@ -82,15 +106,39 @@ def ml_predict_need_cue(features: Dict) -> int:
     Returns:
         0 (no cue needed) or 1 (cue needed)
     """
-    # Test override flag for demonstration
+    # Test override flags for demonstration/testing
     if features.get('_force_ml_cue'):
         return 1
     if features.get('_force_ml_no_cue'):
         return 0
     
-    # Simple heuristic mimicking ML model behavior
-    # In production: load model.tflite and run inference
+    # Try to use real ML model
+    if ML_AVAILABLE and _ml_predictor is not None:
+        try:
+            # Prepare features for ML model
+            ml_features = {
+                'response_time_seconds': features.get('response_time_seconds', 0),
+                'cue_given': 1 if features.get('attempts_so_far', 0) > 0 else 0,
+                'cue_stage': features.get('current_cue_stage', 0),
+                'hint_count': features.get('attempts_so_far', 0),
+                'difficulty_label': features.get('difficulty_label', 'easy'),
+                'device_type': 'mobile' if features.get('is_mobile', False) else 'web',
+                'therapist_assigned_level': features.get('therapist_level', 3),
+                'question_type': features.get('question_type', 'pic_to_word'),
+                'cue_type': features.get('cue_type', 'none'),
+                'time_of_day': features.get('time_of_day', 'morning'),
+                'module': features.get('module', 'writing'),
+                'category': features.get('category', 'animals'),
+            }
+            
+            # Get ML prediction
+            probability, binary_prediction = _ml_predictor.predict(ml_features)
+            return binary_prediction
+            
+        except Exception as e:
+            print(f"⚠️  ML prediction error: {e}, falling back to heuristic")
     
+    # Fallback: Simple heuristic mimicking ML model behavior
     response_time = features.get('response_time_seconds', 0)
     attempts = features.get('attempts_so_far', 0)
     correctness = features.get('correctness_last_n', [])
@@ -146,7 +194,9 @@ def get_recent_accuracy(correctness_last_n: List[int], n: int = 3) -> float:
 
 def decide_cue_rules(feature_dict: Dict) -> Tuple[str, int, str]:
     """
-    Rule-based cueing decision logic.
+    Rule-based cueing decision logic with hierarchical progression.
+    
+    Hierarchy: Function → Rhyme → Written → Spelling → Sentence → Phonemic → Model
     
     Args:
         feature_dict: Dictionary with input features
@@ -161,6 +211,7 @@ def decide_cue_rules(feature_dict: Dict) -> Tuple[str, int, str]:
     difficulty = feature_dict.get('difficulty_label', 'easy')
     familiarity = feature_dict.get('item_familiarity_score', 0.5)
     time_since_start = feature_dict.get('time_since_start_seconds', 0)
+    current_cue_stage = feature_dict.get('current_cue_stage', 0)  # Track current cue level
     
     last_correct = get_last_correctness(correctness)
     recent_accuracy = get_recent_accuracy(correctness)
@@ -172,57 +223,74 @@ def decide_cue_rules(feature_dict: Dict) -> Tuple[str, int, str]:
         return (CueType.NO_CUE.value, 0, "Quick correct response - no cue needed")
     
     # =========================================================================
-    # RULE 2: Previous attempt failed → Start with functional cue
+    # RULE 2: Progressive cue escalation based on response time
+    # Wait 10 seconds → Function cue
+    # Wait 18 seconds total (10 + 8) → Rhyme cue
+    # Wait 26 seconds total (10 + 8 + 8) → Written cue
+    # And so on...
+    # =========================================================================
+    if response_time >= 10 and current_cue_stage == 0:
+        return (CueType.FUNCTIONAL.value, 1, "10+ seconds - start with functional cue")
+    
+    if response_time >= 18 and current_cue_stage == 1:
+        return (CueType.RHYMING.value, 2, "18+ seconds - escalate to rhyming cue")
+    
+    if response_time >= 26 and current_cue_stage == 2:
+        return (CueType.WRITTEN_INITIAL.value, 3, "26+ seconds - escalate to written cue")
+    
+    if response_time >= 34 and current_cue_stage == 3:
+        return (CueType.SPELLING.value, 4, "34+ seconds - escalate to spelling cue")
+    
+    if response_time >= 42 and current_cue_stage == 4:
+        return (CueType.SENTENCE_COMPLETION.value, 5, "42+ seconds - escalate to sentence completion")
+    
+    if response_time >= 50 and current_cue_stage == 5:
+        return (CueType.PHONEMIC.value, 6, "50+ seconds - escalate to phonemic cue")
+    
+    if response_time >= 58 and current_cue_stage == 6:
+        return (CueType.MODELING.value, 7, "58+ seconds - provide full model")
+    
+    # =========================================================================
+    # RULE 3: Failed attempts → Start or escalate cue hierarchy
     # =========================================================================
     if attempts >= 1 and last_correct == 0:
-        # Escalate based on number of failed attempts
-        if attempts == 1:
-            return (CueType.FUNCTIONAL.value, 1, "First failed attempt - functional cue")
-        elif attempts == 2:
-            return (CueType.RHYMING.value, 2, "Second failed attempt - rhyming cue")
-        elif attempts == 3:
-            return (CueType.WRITTEN_INITIAL.value, 4, "Third failed attempt - written initial")
-        elif attempts >= 4:
-            return (CueType.PHONEMIC.value, 6, "Multiple failures - phonemic cue")
-    
-    # =========================================================================
-    # RULE 3: Slow response → Escalate quickly
-    # =========================================================================
-    if response_time > 30:
-        # Very slow - go straight to stronger cues
-        if difficulty == "hard":
-            return (CueType.WRITTEN_INITIAL.value, 4, "Slow response on hard item - written initial")
+        if current_cue_stage == 0:
+            return (CueType.FUNCTIONAL.value, 1, "Failed attempt - start with functional cue")
         else:
-            return (CueType.PHONEMIC.value, 6, "Very slow response - phonemic cue")
-    
-    if response_time > 20:
-        return (CueType.SENTENCE_COMPLETION.value, 3, "Moderately slow - sentence completion")
-    
-    # =========================================================================
-    # RULE 4: Hard item with low familiarity → Prefer written_initial
-    # =========================================================================
-    if difficulty == "hard" and familiarity < 0.3:
-        return (CueType.WRITTEN_INITIAL.value, 4, "Hard unfamiliar item - written initial")
+            # Escalate to next level
+            next_cue, next_stage = get_next_cue_level(current_cue_stage)
+            return (next_cue, next_stage, f"Failed attempt - escalate to stage {next_stage}")
     
     # =========================================================================
-    # RULE 5: Moderate difficulty with some struggle
+    # RULE 4: Hard item with low familiarity → Start with stronger cue
     # =========================================================================
-    if recent_accuracy < 0.5:
-        return (CueType.FUNCTIONAL.value, 1, "Low recent accuracy - functional cue")
-    
-    if recent_accuracy < 0.7 and response_time > 10:
-        return (CueType.RHYMING.value, 2, "Moderate struggle - rhyming cue")
+    if difficulty == "hard" and familiarity < 0.3 and current_cue_stage == 0:
+        return (CueType.WRITTEN_INITIAL.value, 3, "Hard unfamiliar item - skip to written cue")
     
     # =========================================================================
-    # RULE 6: Session fatigue check
+    # RULE 5: Moderate difficulty with struggle
     # =========================================================================
-    if time_since_start > 900 and response_time > 15:  # 15+ minutes in session
-        return (CueType.FUNCTIONAL.value, 1, "Session fatigue detected - light support")
+    if recent_accuracy < 0.5 and current_cue_stage == 0:
+        return (CueType.FUNCTIONAL.value, 1, "Low recent accuracy - provide functional cue")
+    
+    if recent_accuracy < 0.7 and response_time > 10 and current_cue_stage == 0:
+        return (CueType.FUNCTIONAL.value, 1, "Moderate struggle - provide functional cue")
     
     # =========================================================================
-    # DEFAULT: No cue needed
+    # RULE 6: Session fatigue → More supportive cues
     # =========================================================================
-    return (CueType.NO_CUE.value, 0, "Default - no cue needed")
+    if time_since_start > 900 and response_time > 8 and current_cue_stage == 0:
+        return (CueType.FUNCTIONAL.value, 1, "Session fatigue - provide early support")
+    
+    # =========================================================================
+    # DEFAULT: No cue needed (or maintain current level)
+    # =========================================================================
+    if current_cue_stage > 0:
+        # Already showing a cue, maintain it
+        current_cue_type = CUE_HIERARCHY[current_cue_stage]
+        return (current_cue_type.value, current_cue_stage, "Maintaining current cue level")
+    
+    return (CueType.NO_CUE.value, 0, "No cue needed yet")
 
 
 # =============================================================================
@@ -346,15 +414,51 @@ def get_cue_description(cue_type: str) -> str:
     """Get human-readable description of a cue type."""
     descriptions = {
         'no_cue': "No assistance provided",
-        'functional': "Describes what the item is used for",
-        'rhyming': "Provides a word that rhymes with the target",
-        'sentence_completion': "Target word in a sentence context",
-        'written_initial': "Shows the first letter(s) of the word",
-        'spelling': "Provides spelling breakdown or hints",
-        'phonemic': "Provides the initial sound/phoneme",
-        'modeling': "Full model of the correct answer",
+        'functional': "Describes what the item is used for (e.g., 'you use this to buy things')",
+        'rhyming': "Provides a word that rhymes with the target (e.g., 'it rhymes with honey')",
+        'written_initial': "Shows first letter(s) with blanks (e.g., 'm _ _ _ _')",
+        'spelling': "Word spelled out letter by letter (e.g., 'm-o-n-e-y')",
+        'sentence_completion': "Target word in a sentence context (e.g., 'I need to earn some ______')",
+        'phonemic': "Provides the initial sound/syllable (e.g., 'It starts with muh...')",
+        'modeling': "Full model of the correct answer (e.g., 'money')",
     }
     return descriptions.get(cue_type, "Unknown cue type")
+
+
+def get_next_cue_level(current_stage: int) -> Tuple[str, int]:
+    """
+    Get the next cue level in the hierarchy.
+    
+    Args:
+        current_stage: Current cue stage (0-7)
+        
+    Returns:
+        Tuple of (cue_type, cue_stage) for the next level
+    """
+    if current_stage >= len(CUE_HIERARCHY) - 1:
+        # Already at maximum support
+        return (CueType.MODELING.value, len(CUE_HIERARCHY) - 1)
+    
+    next_stage = current_stage + 1
+    next_cue_type = CUE_HIERARCHY[next_stage]
+    return (next_cue_type.value, next_stage)
+
+
+def get_cue_timing_seconds(cue_type: str) -> int:
+    """
+    Get the recommended timing (in seconds) for when to show this cue level.
+    
+    Args:
+        cue_type: The cue type string
+        
+    Returns:
+        Number of seconds to wait before showing this cue
+    """
+    try:
+        cue_enum = CueType(cue_type)
+        return CUE_TIMING.get(cue_enum, 10)  # Default to 10 seconds
+    except ValueError:
+        return 10  # Default fallback
 
 
 def format_decision_result(result: Dict) -> str:

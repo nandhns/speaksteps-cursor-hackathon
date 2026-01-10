@@ -65,7 +65,9 @@ class _ByPatientViewState extends State<ByPatientView>
 
   Future<void> _loadPatients() async {
     setState(() => _isLoading = true);
-    final patients = await _service.getTherapistPatients('');
+    // Get current therapist ID from the service
+    final therapistId = _service.currentUser?.id ?? '';
+    final patients = await _service.getTherapistPatients(therapistId);
     setState(() {
       _patients = patients;
       // If initialPatient is provided, use it; otherwise use first patient

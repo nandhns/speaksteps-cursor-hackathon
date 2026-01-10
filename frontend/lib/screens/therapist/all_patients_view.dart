@@ -45,7 +45,9 @@ class _AllPatientsViewState extends State<AllPatientsView>
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
 
-    final patients = await _service.getTherapistPatients('');
+    // Get current therapist ID from the service
+    final therapistId = _service.currentUser?.id ?? '';
+    final patients = await _service.getTherapistPatients(therapistId);
     final allScores = <String, List<ExerciseScore>>{};
 
     for (var patient in patients) {

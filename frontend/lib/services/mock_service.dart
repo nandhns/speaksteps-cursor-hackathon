@@ -575,6 +575,17 @@ class MockService {
     }
   }
 
+  /// Update user's language preference
+  Future<void> updateUserLanguage(String userId, String languageCode) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    final userIndex = _mockUsers.indexWhere((u) => u.id == userId);
+    if (userIndex != -1) {
+      _mockUsers[userIndex] = _mockUsers[userIndex].copyWith(
+        preferredLanguage: languageCode,
+      );
+    }
+  }
+
   // ==================== EXERCISE OPERATIONS ====================
 
   Future<List<Exercise>> getExercises() async {
@@ -621,7 +632,11 @@ class MockService {
 
   Future<List<UserModel>> getTherapistPatients(String therapistId) async {
     await Future.delayed(const Duration(milliseconds: 300));
-    return _mockUsers.where((u) => u.role == UserRole.patient).toList();
+    // Filter patients by their assigned therapist
+    return _mockUsers.where((u) => 
+        u.role == UserRole.patient && 
+        u.therapistId == therapistId
+    ).toList();
   }
 
   /// Create a new patient (called by therapist)
@@ -632,6 +647,9 @@ class MockService {
     required String patientPhone,
     required String caregiverName,
     required String caregiverPhone,
+    List<TherapyModule>? assignedModules,
+    bool sendOnboardingEmail = true,
+    String preferredLanguage = 'en',
   }) async {
     // Simulate network delay
     await Future.delayed(const Duration(milliseconds: 500));
@@ -644,6 +662,9 @@ class MockService {
       throw Exception('A user with this email already exists');
     }
 
+    // Get current therapist ID (if available)
+    final therapistId = _currentUser?.role == UserRole.therapist ? _currentUser?.id : null;
+
     // Create new patient user
     final newPatient = UserModel(
       id: 'patient_${DateTime.now().millisecondsSinceEpoch}',
@@ -655,9 +676,19 @@ class MockService {
       patientPhone: patientPhone,
       caregiverName: caregiverName,
       caregiverPhone: caregiverPhone,
+      therapistId: therapistId,
+      assignedModules: assignedModules ?? [TherapyModule.writing],
+      onboardingEmailSent: sendOnboardingEmail,
+      preferredLanguage: preferredLanguage,
     );
 
     _mockUsers.add(newPatient);
+    
+    // Mock email sending
+    if (sendOnboardingEmail) {
+      print('Mock: Sending onboarding email to $email for modules: ${assignedModules?.map((m) => m.name).join(", ") ?? "writing"}');
+    }
+    
     return newPatient;
   }
 
@@ -1046,6 +1077,41 @@ class MockService {
         ),
       ]);
     }
+  }
+  
+  // ==================== QUESTION RESPONSE OPERATIONS ====================
+  
+  /// Save individual question response (mock implementation)
+  Future<void> saveQuestionResponse(Map<String, dynamic> response) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    // In mock mode, we just log it
+    print('Mock: Saved question response ${response['id']}');
+  }
+  
+  /// Save multiple question responses (mock implementation)
+  Future<void> saveQuestionResponses(List<Map<String, dynamic>> responses) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    print('Mock: Saved ${responses.length} question responses');
+  }
+  
+  /// Get question responses for a patient (mock implementation)
+  Future<List<Map<String, dynamic>>> getPatientResponses(String patientId, {int? limit}) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    return []; // Return empty list in mock mode
+  }
+  
+  // ==================== EXERCISE SESSION OPERATIONS ====================
+  
+  /// Save exercise session (mock implementation)
+  Future<void> saveExerciseSession(Map<String, dynamic> session) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    print('Mock: Saved exercise session ${session['id']}');
+  }
+  
+  /// Get exercise sessions for a patient (mock implementation)
+  Future<List<Map<String, dynamic>>> getPatientSessions(String patientId, {int? limit}) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    return []; // Return empty list in mock mode
   }
 }
 

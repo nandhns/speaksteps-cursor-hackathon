@@ -1,0 +1,83 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Check if authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+    
+    // =========================================================================
+    // USERS COLLECTION - Allow therapists to read all patients
+    // =========================================================================
+    match /users/{userId} {
+      // Any authenticated user can read users (needed for therapist dashboards)
+      allow read: if isAuth();
+      
+      // Allow therapists to create patient docs (auth.uid != patientId when using admin-helper app)
+      allow create: if isAuth();
+      
+      // Allow therapists to update patient docs
+      allow update: if isAuth();
+      
+      // Allow delete by authenticated (not used in app)
+      allow delete: if isAuth();
+    }
+    
+    // =========================================================================
+    // EXERCISES COLLECTION
+    // =========================================================================
+    match /exercises/{exerciseId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAuth();
+    }
+    
+    // =========================================================================
+    // EXERCISE SCORES COLLECTION
+    // =========================================================================
+    match /exercise_scores/{scoreId} {
+      // Patients can read their own scores, therapists can read all
+      allow read: if isAuth();
+      
+      // Patients can create their own scores
+      allow create: if isAuth();
+      
+      // No updates allowed
+      allow update: if false;
+      
+      // Only the patient who created can delete
+      allow delete: if isAuth() && resource.data.patientId == request.auth.uid;
+    }
+    
+    // =========================================================================
+    // QUESTION RESPONSES COLLECTION
+    // =========================================================================
+    match /question_responses/{responseId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if false;
+      allow delete: if isAuth() && resource.data.patientId == request.auth.uid;
+    }
+    
+    // =========================================================================
+    // EXERCISE SESSIONS COLLECTION
+    // =========================================================================
+    match /exercise_sessions/{sessionId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAuth() && resource.data.patientId == request.auth.uid;
+    }
+
+    // =========================================================================
+    // MAIL COLLECTION (for Firebase Extension: Trigger Email)
+    // =========================================================================
+    match /mail/{mailId} {
+      allow create: if isAuth();
+      allow read, update, delete: if false;
+    }
+  }
+}

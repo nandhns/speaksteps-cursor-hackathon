@@ -1,0 +1,175 @@
+{
+  "@@locale": "ms",
+  
+  "appTitle": "SpeakSteps",
+  "loginTitle": "Selamat Datang ke SpeakSteps",
+  "loginSubtitle": "Teman terapi pertuturan anda",
+  
+  "emailLabel": "E-mel",
+  "passwordLabel": "Kata Laluan",
+  "signIn": "Log Masuk",
+  "signUp": "Daftar",
+  "forgotPassword": "Lupa Kata Laluan?",
+  
+  "therapistRole": "Ahli Terapi",
+  "patientRole": "Pesakit",
+  "selectRole": "Saya adalah...",
+  
+  "homeTitle": "Utama",
+  "exercisesTitle": "Latihan",
+  "progressTitle": "Kemajuan",
+  "settingsTitle": "Tetapan",
+  
+  "writingModule": "Menulis",
+  "comprehensionModule": "Kefahaman",
+  "selectModule": "Pilih modul untuk bermula",
+  
+  "categoryAnimals": "Haiwan",
+  "categoryFood": "Makanan",
+  "categoryBodyParts": "Anggota Badan",
+  "categoryClothing": "Pakaian",
+  "categoryHousehold": "Barangan Rumah",
+  "categoryTransport": "Pengangkutan",
+  
+  "difficultyEasy": "Mudah",
+  "difficultyMedium": "Sederhana",
+  "difficultyHard": "Sukar",
+  "selectDifficulty": "Pilih tahap kesukaran",
+  
+  "startExercise": "Mula Latihan",
+  "nextQuestion": "Soalan Seterusnya",
+  "submitAnswer": "Hantar",
+  "skipQuestion": "Langkau",
+  "finishExercise": "Selesai",
+  
+  "correctAnswer": "Betul!",
+  "incorrectAnswer": "Cuba Lagi",
+  "showHint": "Tunjuk Petunjuk",
+  "hideHint": "Sembunyi Petunjuk",
+  
+  "questionLabel": "Soalan {current} daripada {total}",
+  "@questionLabel": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  
+  "typeYourAnswer": "Taip jawapan anda di sini...",
+  "selectTheCorrectImage": "Pilih gambar yang betul",
+  "whatIsThis": "Apakah ini?",
+  "listenAndSelect": "Dengar dan pilih gambar yang sepadan",
+  
+  "exerciseComplete": "Latihan Selesai!",
+  "yourScore": "Skor Anda: {score}/{total}",
+  "@yourScore": {
+    "placeholders": {
+      "score": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "timeTaken": "Masa: {minutes}m {seconds}s",
+  "@timeTaken": {
+    "placeholders": {
+      "minutes": {"type": "int"},
+      "seconds": {"type": "int"}
+    }
+  },
+  "hintsUsed": "Petunjuk Digunakan: {count}",
+  "@hintsUsed": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  
+  "tryAgain": "Cuba Lagi",
+  "backToHome": "Kembali ke Utama",
+  "viewProgress": "Lihat Kemajuan",
+  
+  "cueFunction": "Fikirkan kegunaan benda ini...",
+  "cueRhyming": "Ia berbunyi seperti: {rhyme}",
+  "@cueRhyming": {
+    "placeholders": {
+      "rhyme": {"type": "String"}
+    }
+  },
+  "cueFirstLetter": "Ia bermula dengan: {letter}",
+  "@cueFirstLetter": {
+    "placeholders": {
+      "letter": {"type": "String"}
+    }
+  },
+  "cueSpelling": "Ejaan: {spelling}",
+  "@cueSpelling": {
+    "placeholders": {
+      "spelling": {"type": "String"}
+    }
+  },
+  
+  "noExercisesAvailable": "Tiada latihan tersedia",
+  "loadingExercises": "Memuatkan latihan...",
+  "errorLoadingExercises": "Ralat memuatkan latihan",
+  
+  "language": "Bahasa",
+  "english": "English",
+  "bahasaMelayu": "Bahasa Melayu",
+  "changeLanguage": "Tukar Bahasa",
+  
+  "logout": "Log Keluar",
+  "profile": "Profil",
+  "help": "Bantuan",
+  
+  "createAccount": "Buat Akaun",
+  "welcomeBack": "Selamat kembali",
+  "createYourAccount": "Buat akaun anda",
+  "startTherapyJourney": "Mulakan perjalanan terapi anda hari ini",
+  "signInToContinue": "Log masuk untuk meneruskan kemajuan anda",
+  "fullName": "Nama penuh",
+  "enterFullName": "Masukkan nama penuh anda",
+  "emailAddress": "Alamat e-mel",
+  "emailPlaceholder": "anda@contoh.com",
+  "enterPassword": "Masukkan kata laluan anda",
+  "pleaseEnterName": "Sila masukkan nama anda",
+  "pleaseEnterEmail": "Sila masukkan e-mel anda",
+  "pleaseEnterValidEmail": "Sila masukkan e-mel yang sah",
+  "pleaseEnterPassword": "Sila masukkan kata laluan anda",
+  "passwordMinLength": "Kata laluan mesti sekurang-kurangnya 6 aksara",
+  "alreadyHaveAccount": "Sudah mempunyai akaun?",
+  "dontHaveAccount": "Belum mempunyai akaun?",
+  "signUpFailed": "Pendaftaran gagal",
+  "signInFailed": "Log masuk gagal",
+  "aphasiaPlatform": "Platform Rehabilitasi Afasia",
+  
+  "exitConfirmTitle": "Keluar dari Latihan?",
+  "exitConfirmMessage": "Anda belum selesaikan latihan ini. Kemajuan anda akan disimpan.",
+  "exitConfirmStay": "Teruskan Latihan",
+  "exitConfirmLeave": "Keluar",
+  
+  "completed": "Selesai",
+  "notStarted": "Belum Dimulakan",
+  "inProgress": "Sedang Berjalan",
+  "scoreLabel": "Skor: {score}/{total}",
+  "@scoreLabel": {
+    "placeholders": {
+      "score": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "lastAttempt": "Percubaan terakhir: {date}",
+  "@lastAttempt": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "sortBy": "Isih:",
+  "sortAZ": "A-Z",
+  "sortZA": "Z-A",
+  "downloadReport": "Muat Turun Laporan (PDF)",
+  "import": "Import",
+  "addPatient": "Tambah Pesakit",
+  "pleaseTypeAnswer": "Sila taip jawapan anda",
+  "pleaseSelectAnswer": "Sila pilih jawapan",
+  "pleaseSelectImage": "Sila pilih gambar",
+  "done": "Selesai"
+}
+

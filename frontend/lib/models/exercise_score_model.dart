@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class ExerciseScore {
   final String id;
   final String patientId;
@@ -39,6 +41,25 @@ class ExerciseScore {
   }
 
   factory ExerciseScore.fromMap(Map<String, dynamic> map) {
+    // Handle completedAt as either Timestamp or String
+    DateTime parsedDate = DateTime.now();
+    final completedAtValue = map['completedAt'];
+
+    if (completedAtValue is Timestamp) {
+      // Firestore Timestamp
+      parsedDate = completedAtValue.toDate();
+    } else if (completedAtValue is String) {
+      // ISO 8601 string
+      parsedDate = DateTime.parse(completedAtValue);
+    } else if (completedAtValue != null) {
+      try {
+        // Try to parse as DateTime
+        parsedDate = completedAtValue as DateTime;
+      } catch (_) {
+        // Fallback to now()
+      }
+    }
+
     return ExerciseScore(
       id: map['id'] ?? '',
       patientId: map['patientId'] ?? '',
@@ -48,9 +69,7 @@ class ExerciseScore {
       maxScore: map['maxScore'] ?? 100,
       answer: map['answer'],
       correctAnswer: map['correctAnswer'],
-      completedAt: map['completedAt'] != null
-          ? DateTime.parse(map['completedAt'])
-          : DateTime.now(),
+      completedAt: parsedDate,
       metadata: map['metadata'] != null
           ? Map<String, dynamic>.from(map['metadata'])
           : null,

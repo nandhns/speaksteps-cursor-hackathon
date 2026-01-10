@@ -176,7 +176,7 @@ class PatientReportTab extends StatelessWidget {
   Widget _buildListContainer(
     BuildContext context,
     String label,
-    List<String> items,
+    List<dynamic> items,
     IconData icon,
     Color color,
   ) {
@@ -227,7 +227,7 @@ class PatientReportTab extends StatelessWidget {
                         return Padding(
                           padding: const EdgeInsets.symmetric(vertical: 2.0),
                           child: Text(
-                            items[index],
+                            items[index].toString(),
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                   fontSize: 11,
                                   height: 1.4,

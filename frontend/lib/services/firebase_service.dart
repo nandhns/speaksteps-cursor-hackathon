@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
+import '../firebase_options.dart';
 import '../models/user_model.dart';
 import '../models/exercise_model.dart';
 import '../models/exercise_score_model.dart';
@@ -19,6 +21,24 @@ class FirebaseService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseDatabase _database = FirebaseDatabase.instance;
+  FirebaseApp? _adminApp;
+  FirebaseAuth? _adminAuth;
+
+  Future<FirebaseAuth> _getAdminAuth() async {
+    if (_adminAuth != null) return _adminAuth!;
+
+    try {
+      _adminApp = Firebase.app('admin-helper');
+    } on FirebaseException {
+      _adminApp = await Firebase.initializeApp(
+        name: 'admin-helper',
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+
+    _adminAuth = FirebaseAuth.instanceFor(app: _adminApp!);
+    return _adminAuth!;
+  }
 
   // ==================== AUTHENTICATION ====================
   
@@ -28,13 +48,15 @@ class FirebaseService {
   /// Sign in with email and password
   Future<UserCredential?> signInWithEmail(String email, String password) async {
     try {
-      return await _auth.signInWithEmailAndPassword(
+      final result = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
+      print('✅ Firebase Auth successful: ${result.user?.email}');
+      return result;
     } catch (e) {
-      print('Sign in error: $e');
-      return null;
+      print('❌ Firebase Auth error: $e');
+      rethrow; // Re-throw to let the adapter handle it
     }
   }
 
@@ -90,14 +112,30 @@ class FirebaseService {
   /// Get user data from Firestore
   Future<UserModel?> getUser(String userId) async {
     try {
+      print('📥 Fetching user from Firestore: $userId');
       final doc = await _firestore.collection('users').doc(userId).get();
       if (doc.exists) {
-        return UserModel.fromMap(doc.data()!);
+        print('✅ User document found for: $userId');
+        final userData = doc.data()!;
+        print('   User data keys: ${userData.keys.toList()}');
+        return UserModel.fromMap(userData);
       }
+      print('❌ User document NOT found for: $userId');
       return null;
     } catch (e) {
-      print('Error getting user: $e');
-      return null;
+      print('❌ Error getting user from Firestore: $e');
+      rethrow; // Re-throw to let the adapter handle it
+    }
+  }
+
+  /// Update user's language preference
+  Future<void> updateUserLanguage(String userId, String languageCode) async {
+    try {
+      await _firestore.collection('users').doc(userId).update({
+        'preferredLanguage': languageCode,
+      });
+    } catch (e) {
+      print('Error updating user language: $e');
     }
   }
 
@@ -138,12 +176,18 @@ class FirebaseService {
   /// This is called when a patient completes an exercise
   Future<void> saveExerciseScore(ExerciseScore score) async {
     try {
+      print('DEBUG Firebase: Saving score to exercise_scores/${score.id}');
+      print('DEBUG Firebase: PatientId: ${score.patientId}, ExerciseId: ${score.exerciseId}, Score: ${score.score}/${score.maxScore}');
+      
       await _firestore
           .collection('exercise_scores')
           .doc(score.id)
           .set(score.toMap());
+      
+      print('DEBUG Firebase: Score saved successfully');
     } catch (e) {
       print('Error saving exercise score: $e');
+      rethrow;
     }
   }
 
@@ -151,16 +195,44 @@ class FirebaseService {
   /// Path: exercise_scores (filtered by patientId)
   Future<List<ExerciseScore>> getPatientScores(String patientId) async {
     try {
-      final snapshot = await _firestore
-          .collection('exercise_scores')
-          .where('patientId', isEqualTo: patientId)
-          .orderBy('completedAt', descending: true)
-          .get();
-      return snapshot.docs
-          .map((doc) => ExerciseScore.fromMap(doc.data()))
-          .toList();
-    } catch (e) {
+      print('DEBUG Firebase: Fetching scores for patientId: $patientId');
+
+      try {
+        final snapshot = await _firestore
+            .collection('exercise_scores')
+            .where('patientId', isEqualTo: patientId)
+            .orderBy('completedAt', descending: true)
+            .get();
+
+        print('DEBUG Firebase: Found ${snapshot.docs.length} score documents');
+
+        return snapshot.docs
+            .map((doc) {
+              print('DEBUG Firebase: Score doc ${doc.id}: ${doc.data()}');
+              return ExerciseScore.fromMap(doc.data());
+            })
+            .toList();
+      } on FirebaseException catch (fe) {
+        // Handle missing composite index: retry without orderBy
+        if (fe.code == 'failed-precondition') {
+          print('DEBUG Firebase: Missing index for patient scores. Falling back without orderBy.');
+          final snapshot = await _firestore
+              .collection('exercise_scores')
+              .where('patientId', isEqualTo: patientId)
+              .get();
+          print('DEBUG Firebase: Fallback found ${snapshot.docs.length} score docs');
+          return snapshot.docs
+              .map((doc) {
+                print('DEBUG Firebase: Score doc ${doc.id}: ${doc.data()}');
+                return ExerciseScore.fromMap(doc.data());
+              })
+              .toList();
+        }
+        rethrow;
+      }
+    } catch (e, st) {
       print('Error getting patient scores: $e');
+      print(st);
       return [];
     }
   }
@@ -177,23 +249,151 @@ class FirebaseService {
             .toList());
   }
 
+  // ==================== QUESTION RESPONSE OPERATIONS ====================
+  
+  /// Save individual question response
+  /// Path: question_responses/{responseId}
+  /// This stores detailed per-question data for ML training and therapist review
+  Future<void> saveQuestionResponse(Map<String, dynamic> response) async {
+    try {
+      await _firestore
+          .collection('question_responses')
+          .doc(response['id'])
+          .set(response);
+    } catch (e) {
+      print('Error saving question response: $e');
+    }
+  }
+  
+  /// Save multiple question responses in a batch (more efficient)
+  Future<void> saveQuestionResponses(List<Map<String, dynamic>> responses) async {
+    try {
+      final batch = _firestore.batch();
+      for (final response in responses) {
+        final docRef = _firestore.collection('question_responses').doc(response['id']);
+        batch.set(docRef, response);
+      }
+      await batch.commit();
+    } catch (e) {
+      print('Error saving question responses batch: $e');
+    }
+  }
+  
+  /// Get question responses for a patient's session
+  Future<List<Map<String, dynamic>>> getSessionResponses(String sessionId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('question_responses')
+          .where('sessionId', isEqualTo: sessionId)
+          .orderBy('questionIndex')
+          .get();
+      return snapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      print('Error getting session responses: $e');
+      return [];
+    }
+  }
+  
+  /// Get all question responses for a patient (for therapist review)
+  Future<List<Map<String, dynamic>>> getPatientResponses(String patientId, {int? limit}) async {
+    try {
+      var query = _firestore
+          .collection('question_responses')
+          .where('patientId', isEqualTo: patientId)
+          .orderBy('presentedAt', descending: true);
+      
+      if (limit != null) {
+        query = query.limit(limit);
+      }
+      
+      final snapshot = await query.get();
+      return snapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      print('Error getting patient responses: $e');
+      return [];
+    }
+  }
+
+  // ==================== EXERCISE SESSION OPERATIONS ====================
+  
+  /// Save exercise session data
+  /// Path: exercise_sessions/{sessionId}
+  Future<void> saveExerciseSession(Map<String, dynamic> session) async {
+    try {
+      await _firestore
+          .collection('exercise_sessions')
+          .doc(session['id'])
+          .set(session);
+    } catch (e) {
+      print('Error saving exercise session: $e');
+    }
+  }
+  
+  /// Get exercise sessions for a patient
+  Future<List<Map<String, dynamic>>> getPatientSessions(String patientId, {int? limit}) async {
+    try {
+      var query = _firestore
+          .collection('exercise_sessions')
+          .where('patientId', isEqualTo: patientId)
+          .orderBy('startTime', descending: true);
+      
+      if (limit != null) {
+        query = query.limit(limit);
+      }
+      
+      final snapshot = await query.get();
+      return snapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      print('Error getting patient sessions: $e');
+      return [];
+    }
+  }
+
   // ==================== PATIENT PROGRESS OPERATIONS ====================
 
   /// Get all patients for a therapist
-  /// Path: users (filtered by role = patient)
+  /// Path: users (filtered by role = patient AND therapistId)
   Future<List<UserModel>> getTherapistPatients(String therapistId) async {
     try {
-      // In a real app, you might have a therapist_patients collection
-      // For now, we'll get all patients
-      final snapshot = await _firestore
-          .collection('users')
-          .where('role', isEqualTo: 'patient')
-          .get();
-      return snapshot.docs
-          .map((doc) => UserModel.fromMap(doc.data()))
+      print('DEBUG Firebase: Fetching patients for therapistId: $therapistId');
+
+      // Primary query (requires composite index on role+therapistId)
+      List<QueryDocumentSnapshot<Map<String, dynamic>>> docs;
+      try {
+        final snapshot = await _firestore
+            .collection('users')
+            .where('role', isEqualTo: 'patient')
+            .where('therapistId', isEqualTo: therapistId)
+            .get();
+        docs = snapshot.docs;
+        print('DEBUG Firebase: Filtered query returned ${docs.length} docs');
+      } on FirebaseException catch (fe) {
+        // Missing index or permission error: fallback to broader query then filter client-side
+        print('DEBUG Firebase: Filtered query failed (${fe.code}). Falling back to client filter.');
+        final all = await _firestore
+            .collection('users')
+            .where('role', isEqualTo: 'patient')
+            .get();
+        docs = all.docs.where((d) => d.data()['therapistId'] == therapistId).toList();
+        print('DEBUG Firebase: Fallback docs total=${all.docs.length}, matched=${docs.length}');
+      }
+
+      if (docs.isEmpty) {
+        print('DEBUG Firebase: No patients matched therapistId=$therapistId');
+      }
+
+      final patients = docs
+          .map((doc) {
+            final data = doc.data();
+            print('DEBUG Firebase: Patient ${doc.id} name=${data['name']} therapistId=${data['therapistId']}');
+            return UserModel.fromMap(data);
+          })
           .toList();
-    } catch (e) {
+
+      return patients;
+    } catch (e, st) {
       print('Error getting therapist patients: $e');
+      print(st);
       return [];
     }
   }
@@ -211,29 +411,44 @@ class FirebaseService {
     required String patientPhone,
     required String caregiverName,
     required String caregiverPhone,
+    List<TherapyModule>? assignedModules,
+    bool sendOnboardingEmail = true,
+    String preferredLanguage = 'en',
   }) async {
     try {
-      // Store current therapist user info
       final currentTherapist = _auth.currentUser;
-      final therapistEmail = currentTherapist?.email;
+      if (currentTherapist == null) {
+        throw Exception('Therapist must be signed in to add a patient');
+      }
 
-      // Generate a temporary password (in production, send this via email to patient/caregiver)
+      final adminAuth = await _getAdminAuth();
+      final therapistId = currentTherapist.uid;
       final tempPassword = 'TempPass${DateTime.now().millisecondsSinceEpoch}';
 
-      // Create user account in Firebase Auth
-      // This will automatically sign in the new patient
-      final credential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: tempPassword,
-      );
+      UserCredential credential;
+
+      try {
+        // Create patient in a secondary Firebase app so the therapist session stays intact
+        credential = await adminAuth.createUserWithEmailAndPassword(
+          email: email,
+          password: tempPassword,
+        );
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'email-already-in-use') {
+          throw Exception('Email already in use. Use a different email or ask the patient to sign in with their existing account.');
+        }
+        rethrow;
+      }
 
       if (credential.user == null) {
-        throw Exception('Failed to create user account');
+        throw Exception('Failed to create patient account');
       }
+
+      final patientUid = credential.user!.uid;
 
       // Create user document in Firestore with patient-specific fields
       final patientModel = UserModel(
-        id: credential.user!.uid,
+        id: patientUid,
         email: email,
         name: name,
         role: UserRole.patient,
@@ -242,28 +457,124 @@ class FirebaseService {
         patientPhone: patientPhone,
         caregiverName: caregiverName,
         caregiverPhone: caregiverPhone,
+        therapistId: therapistId,
+        assignedModules: assignedModules ?? [TherapyModule.writing],
+        onboardingEmailSent: false,
+        preferredLanguage: preferredLanguage,
+        mustChangePassword: true,
       );
 
       await saveUser(patientModel);
 
-      // Sign out the newly created patient
-      // NOTE: The therapist will need to sign back in manually
-      // In production, use Admin SDK on backend to avoid this issue
-      await _auth.signOut();
+      if (sendOnboardingEmail) {
+        await _queueOnboardingEmail(
+          patientEmail: email,
+          patientName: name,
+          tempPassword: tempPassword,
+          assignedModules: assignedModules ?? [TherapyModule.writing],
+        );
+      }
 
-      // TODO: In production, re-authenticate the therapist here
-      // For now, show a message that they need to sign back in
+      // Clean up the secondary auth session
+      await adminAuth.signOut();
 
       return patientModel;
     } catch (e) {
       print('Error creating patient: $e');
-      // If user creation failed, try to clean up
-      if (_auth.currentUser != null && _auth.currentUser!.email == email) {
-        try {
-          await _auth.currentUser!.delete();
-        } catch (_) {}
-      }
       rethrow;
+    }
+  }
+
+  /// Queue an onboarding email to be sent to the patient
+  /// This creates a document in the 'mail' collection which triggers Firebase Extension
+  Future<void> _queueOnboardingEmail({
+    required String patientEmail,
+    required String patientName,
+    required String tempPassword,
+    required List<TherapyModule> assignedModules,
+  }) async {
+    try {
+      final moduleNames = assignedModules.map((m) => m.name).join(', ');
+      
+      // Create email document for Firebase Trigger Email extension
+      await _firestore.collection('mail').add({
+        'to': patientEmail,
+        'message': {
+          'subject': 'Welcome to SpeakSteps - Your Therapy App',
+          'html': '''
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #6B46C1; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+    .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }
+    .credentials { background: #E9D8FD; padding: 15px; border-radius: 8px; margin: 20px 0; }
+    .button { background: #6B46C1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block; margin: 10px 0; }
+    .modules { background: #EDF2F7; padding: 10px; border-radius: 4px; }
+    .footer { text-align: center; color: #666; font-size: 12px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🗣️ Welcome to SpeakSteps!</h1>
+    </div>
+    <div class="content">
+      <p>Hello <strong>$patientName</strong>,</p>
+      <p>Your therapist has set up a SpeakSteps account for you! SpeakSteps is a speech therapy app designed to help you practice and improve your communication skills.</p>
+      
+      <div class="credentials">
+        <h3>📧 Your Login Credentials</h3>
+        <p><strong>Email:</strong> $patientEmail</p>
+        <p><strong>Temporary Password:</strong> $tempPassword</p>
+        <p><em>Please change your password after your first login.</em></p>
+      </div>
+      
+      <div class="modules">
+        <h3>📚 Assigned Modules</h3>
+        <p>Your therapist has assigned you the following therapy modules:</p>
+        <p><strong>$moduleNames</strong></p>
+      </div>
+      
+      <h3>📱 How to Get Started</h3>
+      <p><strong>On Web:</strong></p>
+      <p><a href="https://speaksteps-cursor.web.app" class="button">Open SpeakSteps Web App</a></p>
+      
+      <p><strong>On Mobile:</strong></p>
+      <ol>
+        <li>Download "SpeakSteps" from the App Store (iOS) or Google Play (Android)</li>
+        <li>Open the app and sign in with your credentials above</li>
+        <li>Start practicing your assigned modules!</li>
+      </ol>
+      
+      <h3>💡 Tips for Success</h3>
+      <ul>
+        <li>Practice daily for best results</li>
+        <li>Take your time with each exercise</li>
+        <li>Use the cue/hint buttons when you need help</li>
+        <li>Your progress is tracked automatically</li>
+      </ul>
+      
+      <p>If you have any questions, please contact your therapist.</p>
+      
+      <div class="footer">
+        <p>This email was sent by SpeakSteps Therapy Platform</p>
+        <p>If you didn't expect this email, please ignore it.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+          ''',
+        },
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      print('Onboarding email queued for $patientEmail');
+    } catch (e) {
+      print('Error queuing onboarding email: $e');
+      // Don't throw - email failure shouldn't block patient creation
     }
   }
 

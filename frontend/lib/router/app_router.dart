@@ -4,7 +4,8 @@ import 'package:provider/provider.dart';
 import '../screens/login_screen.dart';
 import '../screens/patient/patient_home_screen.dart';
 import '../screens/therapist/therapist_dashboard_screen.dart';
-import '../providers/auth_provider.dart';
+import '../screens/change_password_screen.dart';
+import '../providers/auth_provider.dart' as app_auth;
 import '../models/user_model.dart';
 
 class AppRouter {
@@ -16,6 +17,11 @@ class AppRouter {
           path: '/login',
           name: 'login',
           builder: (context, state) => const LoginScreen(),
+        ),
+        GoRoute(
+          path: '/change-password',
+          name: 'change-password',
+          builder: (context, state) => const ChangePasswordScreen(),
         ),
         GoRoute(
           path: '/patient',
@@ -31,14 +37,30 @@ class AppRouter {
       redirect: (context, state) {
         // Get AuthProvider from context if available
         try {
-          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          final authProvider = Provider.of<app_auth.AuthProvider>(context, listen: false);
           final isAuthenticated = authProvider.isAuthenticated;
           final currentUser = authProvider.currentUser;
+          final mustChange = authProvider.mustChangePassword;
           final isLoginPage = state.matchedLocation == '/login';
+          final isChangePasswordPage = state.matchedLocation == '/change-password';
 
           // If not authenticated and not on login page, redirect to login
           if (!isAuthenticated && !isLoginPage) {
             return '/login';
+          }
+
+          // Force password change when required
+          if (isAuthenticated && mustChange && !isChangePasswordPage) {
+            return '/change-password';
+          }
+
+          // If user already changed password but is on change-password page, send them to their home
+          if (isAuthenticated && !mustChange && isChangePasswordPage) {
+            if (currentUser?.role == UserRole.patient) {
+              return '/patient';
+            } else if (currentUser?.role == UserRole.therapist) {
+              return '/therapist';
+            }
           }
 
           // If authenticated and on login page, redirect based on role

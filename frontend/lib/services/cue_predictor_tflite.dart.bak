@@ -111,12 +111,12 @@ class CuePredictorInput {
     const encoding = {
       'none': 0,
       'functional': 1,
-      'modeling': 2,
-      'phonemic': 3,
-      'rhyming': 4,
+      'rhyming': 2,
+      'written_initial': 3,
+      'spelling': 4,
       'sentence_completion': 5,
-      'spelling': 6,
-      'written_initial': 7,
+      'phonemic': 6,
+      'modeling': 7,
     };
     return encoding[type] ?? 0;
   }

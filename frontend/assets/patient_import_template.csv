@@ -1,0 +1,5 @@
+email,name,diagnosis,patient_phone,caregiver_name,caregiver_phone,modules
+patient1@example.com,John Smith,Broca's Aphasia,+1234567890,Jane Smith,+1234567891,writing
+patient2@example.com,Mary Johnson,Wernicke's Aphasia,+1234567892,Robert Johnson,+1234567893,comprehension
+patient3@example.com,David Brown,Anomic Aphasia,+1234567894,Lisa Brown,+1234567895,"writing,comprehension"
+

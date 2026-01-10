@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpeakSteps - Seed Firestore</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #6B46C1; }
+        .btn {
+            background: #6B46C1;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px 10px 0;
+        }
+        .btn:hover { background: #553C9A; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-secondary {
+            background: #38A169;
+        }
+        .btn-secondary:hover { background: #2F855A; }
+        .log {
+            background: #1a1a2e;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .success { color: #38A169; }
+        .error { color: #E53E3E; }
+        .info { color: #3182CE; }
+        .credentials {
+            background: #EDF2F7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .credentials h3 { margin-top: 0; color: #2D3748; }
+        .credentials code {
+            background: #E2E8F0;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌱 SpeakSteps - Firebase Seed Tool</h1>
+        <p>This tool will seed your Firestore database with sample exercises and create test accounts.</p>
+        
+        <div>
+            <button id="seedExercisesBtn" class="btn" onclick="seedExercises()">
+                📚 Seed Exercises
+            </button>
+            <button id="createTherapistBtn" class="btn btn-secondary" onclick="createTherapist()">
+                👨‍⚕️ Create Therapist Account
+            </button>
+            <button id="createPatientsBtn" class="btn btn-secondary" onclick="createPatients()">
+                🧑‍🤝‍🧑 Create Patient Accounts
+            </button>
+            <button class="btn" onclick="seedAll()" style="background: #D69E2E;">
+                ⚡ Seed All Data
+            </button>
+            <button class="btn" onclick="repairUserDocs()" style="background: #E53E3E;">
+                🔧 Repair Missing User Docs
+            </button>
+        </div>
+
+        <div class="credentials">
+            <h3>📝 Test Credentials (after seeding):</h3>
+            <p><strong>Therapist:</strong> <code>therapist@speaksteps.com</code> / <code>Therapist123!</code></p>
+            <p><strong>Patient 1:</strong> <code>john.patient@speaksteps.com</code> / <code>Patient123!</code></p>
+            <p><strong>Patient 2:</strong> <code>emma.patient@speaksteps.com</code> / <code>Patient123!</code></p>
+            <p><strong>Patient 3:</strong> <code>michael.patient@speaksteps.com</code> / <code>Patient123!</code></p>
+        </div>
+
+        <div id="log" class="log">Ready to seed...\n</div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, doc, setDoc, collection } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getAuth, createUserWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        // Firebase configuration for speaksteps-cursor
+        const firebaseConfig = {
+            apiKey: "AIzaSyBfZBBaVtPvFbLbwiEYc4PewBApGSgNQDk",
+            authDomain: "speaksteps-cursor.firebaseapp.com",
+            databaseURL: "https://speaksteps-cursor-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "speaksteps-cursor",
+            storageBucket: "speaksteps-cursor.firebasestorage.app",
+            messagingSenderId: "499220798990",
+            appId: "1:499220798990:web:0153ed00abe79fa7bde65f",
+            measurementId: "G-6VX3ZL62YX"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        const logDiv = document.getElementById('log');
+
+        function log(message, type = '') {
+            const className = type ? `class="${type}"` : '';
+            logDiv.innerHTML += `<span ${className}>${message}</span>\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // Sample exercises data
+        const exercises = [
+            // Writing exercises - Animals
+            {
+                id: 'writing_animals_1',
+                title: 'Animal Names - Easy',
+                description: 'Type the name of the animal shown in the picture',
+                type: 'writing',
+                category: 'animal',
+                exerciseType: 'writing',
+                options: [],
+                difficulty: 1,
+                questions: [
+                    {
+                        id: 'w_animal_1',
+                        imageUrl: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400',
+                        correctAnswer: 'dog',
+                        cueHierarchy: {
+                            functional: 'This animal barks and is often kept as a pet',
+                            rhyming: 'It rhymes with "log"',
+                            written_initial: 'd__',
+                            spelling: 'd-o-g',
+                            phonemic: 'Starts with "duh" sound',
+                            modeling: 'dog',
+                        },
+                    },
+                    {
+                        id: 'w_animal_2',
+                        imageUrl: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400',
+                        correctAnswer: 'cat',
+                        cueHierarchy: {
+                            functional: 'This animal meows and catches mice',
+                            rhyming: 'It rhymes with "hat"',
+                            written_initial: 'c__',
+                            spelling: 'c-a-t',
+                            phonemic: 'Starts with "kuh" sound',
+                            modeling: 'cat',
+                        },
+                    },
+                    {
+                        id: 'w_animal_3',
+                        imageUrl: 'https://images.unsplash.com/photo-1557401620-67270b61ea81?w=400',
+                        correctAnswer: 'bird',
+                        cueHierarchy: {
+                            functional: 'This animal has feathers and can fly',
+                            rhyming: 'It rhymes with "word"',
+                            written_initial: 'b___',
+                            spelling: 'b-i-r-d',
+                            phonemic: 'Starts with "buh" sound',
+                            modeling: 'bird',
+                        },
+                    },
+                    {
+                        id: 'w_animal_4',
+                        imageUrl: 'https://images.unsplash.com/photo-1589883661923-6476cb0ae9f2?w=400',
+                        correctAnswer: 'fish',
+                        cueHierarchy: {
+                            functional: 'This animal lives in water and has fins',
+                            rhyming: 'It rhymes with "dish"',
+                            written_initial: 'f___',
+                            spelling: 'f-i-s-h',
+                            phonemic: 'Starts with "fuh" sound',
+                            modeling: 'fish',
+                        },
+                    },
+                ],
+            },
+            // Writing exercises - Body Parts
+            {
+                id: 'writing_body_1',
+                title: 'Body Parts - Easy',
+                description: 'Type the name of the body part shown',
+                type: 'writing',
+                category: 'bodyParts',
+                exerciseType: 'writing',
+                options: [],
+                difficulty: 1,
+                questions: [
+                    {
+                        id: 'w_body_1',
+                        imageUrl: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400',
+                        correctAnswer: 'hand',
+                        cueHierarchy: {
+                            functional: 'You use this to hold things and wave',
+                            rhyming: 'It rhymes with "sand"',
+                            written_initial: 'h___',
+                            spelling: 'h-a-n-d',
+                            phonemic: 'Starts with "huh" sound',
+                            modeling: 'hand',
+                        },
+                    },
+                    {
+                        id: 'w_body_2',
+                        imageUrl: 'https://images.unsplash.com/photo-1598128558393-70ff21433be0?w=400',
+                        correctAnswer: 'eye',
+                        cueHierarchy: {
+                            functional: 'You use this to see things',
+                            rhyming: 'It rhymes with "sky"',
+                            written_initial: 'e__',
+                            spelling: 'e-y-e',
+                            phonemic: 'Starts with "eye" sound',
+                            modeling: 'eye',
+                        },
+                    },
+                    {
+                        id: 'w_body_3',
+                        imageUrl: 'https://images.unsplash.com/photo-1583001931096-959e9a1a6223?w=400',
+                        correctAnswer: 'nose',
+                        cueHierarchy: {
+                            functional: 'You use this to smell things',
+                            rhyming: 'It rhymes with "rose"',
+                            written_initial: 'n___',
+                            spelling: 'n-o-s-e',
+                            phonemic: 'Starts with "nuh" sound',
+                            modeling: 'nose',
+                        },
+                    },
+                    {
+                        id: 'w_body_4',
+                        imageUrl: 'https://images.unsplash.com/photo-1519235624215-85175d5eb36e?w=400',
+                        correctAnswer: 'ear',
+                        cueHierarchy: {
+                            functional: 'You use this to hear sounds',
+                            rhyming: 'It rhymes with "near"',
+                            written_initial: 'e__',
+                            spelling: 'e-a-r',
+                            phonemic: 'Starts with "ee" sound',
+                            modeling: 'ear',
+                        },
+                    },
+                ],
+            },
+            // Writing exercises - Food
+            {
+                id: 'writing_food_1',
+                title: 'Food Items - Easy',
+                description: 'Type the name of the food shown',
+                type: 'writing',
+                category: 'food',
+                exerciseType: 'writing',
+                options: [],
+                difficulty: 1,
+                questions: [
+                    {
+                        id: 'w_food_1',
+                        imageUrl: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=400',
+                        correctAnswer: 'apple',
+                        cueHierarchy: {
+                            functional: 'A red or green fruit that keeps the doctor away',
+                            rhyming: 'It rhymes with "chapel"',
+                            written_initial: 'a____',
+                            spelling: 'a-p-p-l-e',
+                            phonemic: 'Starts with "ah" sound',
+                            modeling: 'apple',
+                        },
+                    },
+                    {
+                        id: 'w_food_2',
+                        imageUrl: 'https://images.unsplash.com/photo-1528750997573-59b89d56f4f7?w=400',
+                        correctAnswer: 'bread',
+                        cueHierarchy: {
+                            functional: 'You make sandwiches with this',
+                            rhyming: 'It rhymes with "red"',
+                            written_initial: 'b____',
+                            spelling: 'b-r-e-a-d',
+                            phonemic: 'Starts with "buh" sound',
+                            modeling: 'bread',
+                        },
+                    },
+                    {
+                        id: 'w_food_3',
+                        imageUrl: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400',
+                        correctAnswer: 'milk',
+                        cueHierarchy: {
+                            functional: 'A white drink that comes from cows',
+                            rhyming: 'It rhymes with "silk"',
+                            written_initial: 'm___',
+                            spelling: 'm-i-l-k',
+                            phonemic: 'Starts with "muh" sound',
+                            modeling: 'milk',
+                        },
+                    },
+                    {
+                        id: 'w_food_4',
+                        imageUrl: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400',
+                        correctAnswer: 'egg',
+                        cueHierarchy: {
+                            functional: 'Chickens lay these, you can fry or boil them',
+                            rhyming: 'It rhymes with "leg"',
+                            written_initial: 'e__',
+                            spelling: 'e-g-g',
+                            phonemic: 'Starts with "eh" sound',
+                            modeling: 'egg',
+                        },
+                    },
+                ],
+            },
+            // Writing exercises - Clothing
+            {
+                id: 'writing_clothing_1',
+                title: 'Clothing Items - Easy',
+                description: 'Type the name of the clothing shown',
+                type: 'writing',
+                category: 'clothing',
+                exerciseType: 'writing',
+                options: [],
+                difficulty: 1,
+                questions: [
+                    {
+                        id: 'w_cloth_1',
+                        imageUrl: 'https://images.unsplash.com/photo-1562157873-818bc0726f68?w=400',
+                        correctAnswer: 'shirt',
+                        cueHierarchy: {
+                            functional: 'You wear this on your upper body',
+                            rhyming: 'It rhymes with "dirt"',
+                            written_initial: 's____',
+                            spelling: 's-h-i-r-t',
+                            phonemic: 'Starts with "shh" sound',
+                            modeling: 'shirt',
+                        },
+                    },
+                    {
+                        id: 'w_cloth_2',
+                        imageUrl: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=400',
+                        correctAnswer: 'pants',
+                        cueHierarchy: {
+                            functional: 'You wear these on your legs',
+                            rhyming: 'It rhymes with "ants"',
+                            written_initial: 'p____',
+                            spelling: 'p-a-n-t-s',
+                            phonemic: 'Starts with "puh" sound',
+                            modeling: 'pants',
+                        },
+                    },
+                    {
+                        id: 'w_cloth_3',
+                        imageUrl: 'https://images.unsplash.com/photo-1449505278894-297fdb3edbc1?w=400',
+                        correctAnswer: 'shoe',
+                        cueHierarchy: {
+                            functional: 'You wear these on your feet',
+                            rhyming: 'It rhymes with "blue"',
+                            written_initial: 's___',
+                            spelling: 's-h-o-e',
+                            phonemic: 'Starts with "shh" sound',
+                            modeling: 'shoe',
+                        },
+                    },
+                    {
+                        id: 'w_cloth_4',
+                        imageUrl: 'https://images.unsplash.com/photo-1576871337632-b9aef4c17ab9?w=400',
+                        correctAnswer: 'hat',
+                        cueHierarchy: {
+                            functional: 'You wear this on your head',
+                            rhyming: 'It rhymes with "cat"',
+                            written_initial: 'h__',
+                            spelling: 'h-a-t',
+                            phonemic: 'Starts with "huh" sound',
+                            modeling: 'hat',
+                        },
+                    },
+                ],
+            },
+            // Comprehension exercises - Animals
+            {
+                id: 'comprehension_animals_1',
+                title: 'Animal Recognition - Easy',
+                description: 'Listen and select the correct animal picture',
+                type: 'comprehension',
+                category: 'animal',
+                exerciseType: 'comprehension',
+                options: [],
+                difficulty: 1,
+                questions: [
+                    {
+                        id: 'c_animal_1',
+                        audioUrl: 'dog',
+                        correctAnswer: 'dog',
+                        options: ['dog', 'cat', 'bird', 'fish'],
+                        imageOptions: [
+                            'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400',
+                            'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400',
+                            'https://images.unsplash.com/photo-1557401620-67270b61ea81?w=400',
+                            'https://images.unsplash.com/photo-1589883661923-6476cb0ae9f2?w=400',
+                        ],
+                        cueHierarchy: {
+                            functional: 'This animal barks',
+                            rhyming: 'It rhymes with "log"',
+                            written_initial: 'd__',
+                        },
+                    },
+                    {
+                        id: 'c_animal_2',
+                        audioUrl: 'cat',
+                        correctAnswer: 'cat',
+                        options: ['dog', 'cat', 'bird', 'fish'],
+                        imageOptions: [
+                            'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400',
+                            'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400',
+                            'https://images.unsplash.com/photo-1557401620-67270b61ea81?w=400',
+                            'https://images.unsplash.com/photo-1589883661923-6476cb0ae9f2?w=400',
+                        ],
+                        cueHierarchy: {
+                            functional: 'This animal meows',
+                            rhyming: 'It rhymes with "hat"',
+                            written_initial: 'c__',
+                        },
+                    },
+                    {
+                        id: 'c_animal_3',
+                        audioUrl: 'bird',
+                        correctAnswer: 'bird',
+                        options: ['dog', 'cat', 'bird', 'fish'],
+                        imageOptions: [
+                            'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400',
+                            'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400',
+                            'https://images.unsplash.com/photo-1557401620-67270b61ea81?w=400',
+                            'https://images.unsplash.com/photo-1589883661923-6476cb0ae9f2?w=400',
+                        ],
+                        cueHierarchy: {
+                            functional: 'This animal flies and has feathers',
+                            rhyming: 'It rhymes with "word"',
+                            written_initial: 'b___',
+                        },
+                    },
+                ],
+            },
+            // Comprehension exercises - Food
+            {
+                id: 'comprehension_food_1',
+                title: 'Food Recognition - Easy',
+                description: 'Listen and select the correct food picture',
+                type: 'comprehension',
+                category: 'food',
+                exerciseType: 'comprehension',
+                options: [],
+                difficulty: 1,
+                questions: [
+                    {
+                        id: 'c_food_1',
+                        audioUrl: 'apple',
+                        correctAnswer: 'apple',
+                        options: ['apple', 'bread', 'milk', 'egg'],
+                        imageOptions: [
+                            'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=400',
+                            'https://images.unsplash.com/photo-1528750997573-59b89d56f4f7?w=400',
+                            'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400',
+                            'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400',
+                        ],
+                        cueHierarchy: {
+                            functional: 'A red or green fruit',
+                            rhyming: 'It rhymes with "chapel"',
+                            written_initial: 'a____',
+                        },
+                    },
+                    {
+                        id: 'c_food_2',
+                        audioUrl: 'bread',
+                        correctAnswer: 'bread',
+                        options: ['apple', 'bread', 'milk', 'egg'],
+                        imageOptions: [
+                            'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=400',
+                            'https://images.unsplash.com/photo-1528750997573-59b89d56f4f7?w=400',
+                            'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400',
+                            'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400',
+                        ],
+                        cueHierarchy: {
+                            functional: 'You make sandwiches with this',
+                            rhyming: 'It rhymes with "red"',
+                            written_initial: 'b____',
+                        },
+                    },
+                ],
+            },
+        ];
+
+        // User data for seeding
+        const therapistData = {
+            email: 'therapist@speaksteps.com',
+            password: 'Therapist123!',
+            name: 'Dr. Sarah Chen',
+            role: 'therapist',
+        };
+
+        const patientsData = [
+            {
+                email: 'john.patient@speaksteps.com',
+                password: 'Patient123!',
+                name: 'John Smith',
+                diagnosis: "Broca's Aphasia",
+                patientPhone: '+1 (555) 123-4567',
+                caregiverName: 'Mary Smith',
+                caregiverPhone: '+1 (555) 123-4568',
+            },
+            {
+                email: 'emma.patient@speaksteps.com',
+                password: 'Patient123!',
+                name: 'Emma Johnson',
+                diagnosis: "Wernicke's Aphasia",
+                patientPhone: '+1 (555) 234-5678',
+                caregiverName: 'Robert Johnson',
+                caregiverPhone: '+1 (555) 234-5679',
+            },
+            {
+                email: 'michael.patient@speaksteps.com',
+                password: 'Patient123!',
+                name: 'Michael Brown',
+                diagnosis: 'Anomic Aphasia',
+                patientPhone: '+1 (555) 345-6789',
+                caregiverName: 'Lisa Brown',
+                caregiverPhone: '+1 (555) 345-6790',
+            },
+        ];
+
+        // Expose functions to window for onclick handlers
+        window.seedExercises = async function() {
+            log('📚 Seeding exercises...', 'info');
+            document.getElementById('seedExercisesBtn').disabled = true;
+            
+            try {
+                for (const exercise of exercises) {
+                    await setDoc(doc(db, 'exercises', exercise.id), exercise);
+                    log(`  ✓ Added: ${exercise.title}`, 'success');
+                }
+                log(`✅ Successfully seeded ${exercises.length} exercises!`, 'success');
+            } catch (error) {
+                log(`❌ Error seeding exercises: ${error.message}`, 'error');
+            }
+            
+            document.getElementById('seedExercisesBtn').disabled = false;
+        };
+
+        window.createTherapist = async function() {
+            log('👨‍⚕️ Creating therapist account...', 'info');
+            document.getElementById('createTherapistBtn').disabled = true;
+            
+            try {
+                const userCredential = await createUserWithEmailAndPassword(
+                    auth, 
+                    therapistData.email, 
+                    therapistData.password
+                );
+                
+                const userData = {
+                    id: userCredential.user.uid,
+                    email: therapistData.email,
+                    name: therapistData.name,
+                    role: 'therapist',
+                    createdAt: new Date().toISOString(),
+                };
+                
+                await setDoc(doc(db, 'users', userCredential.user.uid), userData);
+                log(`  ✓ Created therapist: ${therapistData.name}`, 'success');
+                log(`    Email: ${therapistData.email}`, 'info');
+                log(`    Password: ${therapistData.password}`, 'info');
+                log('✅ Therapist account created!', 'success');
+            } catch (error) {
+                if (error.code === 'auth/email-already-in-use') {
+                    log('ℹ️ Therapist account already exists', 'info');
+                } else {
+                    log(`❌ Error creating therapist: ${error.message}`, 'error');
+                }
+            }
+            
+            document.getElementById('createTherapistBtn').disabled = false;
+        };
+
+        window.createPatients = async function() {
+            log('🧑‍🤝‍🧑 Creating patient accounts...', 'info');
+            document.getElementById('createPatientsBtn').disabled = true;
+            
+            for (const patient of patientsData) {
+                try {
+                    const userCredential = await createUserWithEmailAndPassword(
+                        auth,
+                        patient.email,
+                        patient.password
+                    );
+                    
+                    const userData = {
+                        id: userCredential.user.uid,
+                        email: patient.email,
+                        name: patient.name,
+                        role: 'patient',
+                        createdAt: new Date().toISOString(),
+                        diagnosis: patient.diagnosis,
+                        patientPhone: patient.patientPhone,
+                        caregiverName: patient.caregiverName,
+                        caregiverPhone: patient.caregiverPhone,
+                    };
+                    
+                    await setDoc(doc(db, 'users', userCredential.user.uid), userData);
+                    log(`  ✓ Created patient: ${patient.name}`, 'success');
+                } catch (error) {
+                    if (error.code === 'auth/email-already-in-use') {
+                        log(`  ℹ️ Patient ${patient.name} already exists`, 'info');
+                    } else {
+                        log(`  ❌ Error creating ${patient.name}: ${error.message}`, 'error');
+                    }
+                }
+            }
+            
+            log('✅ Patient accounts processing complete!', 'success');
+            document.getElementById('createPatientsBtn').disabled = false;
+        };
+
+        window.seedAll = async function() {
+            log('⚡ Starting full seed process...', 'info');
+            await window.seedExercises();
+            await window.createTherapist();
+            await window.createPatients();
+            log('\n🎉 All seeding complete! You can now use the app.', 'success');
+        };
+
+        // Repair function - signs in as existing users and creates missing Firestore docs
+        window.repairUserDocs = async function() {
+            log('🔧 Repairing missing user documents...', 'info');
+            
+            const allUsers = [
+                {
+                    email: therapistData.email,
+                    password: therapistData.password,
+                    name: therapistData.name,
+                    role: 'therapist',
+                },
+                ...patientsData.map(p => ({
+                    email: p.email,
+                    password: p.password,
+                    name: p.name,
+                    role: 'patient',
+                    diagnosis: p.diagnosis,
+                    patientPhone: p.patientPhone,
+                    caregiverName: p.caregiverName,
+                    caregiverPhone: p.caregiverPhone,
+                }))
+            ];
+
+            for (const userData of allUsers) {
+                try {
+                    // Try to sign in
+                    log(`  🔑 Signing in as ${userData.email}...`, 'info');
+                    const { signInWithEmailAndPassword } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+                    const userCredential = await signInWithEmailAndPassword(auth, userData.email, userData.password);
+                    const uid = userCredential.user.uid;
+                    
+                    // Check if Firestore doc exists
+                    const { getDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+                    const userDoc = await getDoc(doc(db, 'users', uid));
+                    
+                    if (!userDoc.exists()) {
+                        // Create the missing document
+                        const docData = {
+                            id: uid,
+                            email: userData.email,
+                            name: userData.name,
+                            role: userData.role,
+                            createdAt: new Date().toISOString(),
+                        };
+                        
+                        // Add patient-specific fields
+                        if (userData.role === 'patient') {
+                            docData.diagnosis = userData.diagnosis || '';
+                            docData.patientPhone = userData.patientPhone || '';
+                            docData.caregiverName = userData.caregiverName || '';
+                            docData.caregiverPhone = userData.caregiverPhone || '';
+                        }
+                        
+                        await setDoc(doc(db, 'users', uid), docData);
+                        log(`  ✓ Created missing doc for ${userData.name} (${userData.role})`, 'success');
+                    } else {
+                        log(`  ℹ️ Doc already exists for ${userData.name}`, 'info');
+                    }
+                    
+                    // Sign out
+                    const { signOut } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+                    await signOut(auth);
+                    
+                } catch (error) {
+                    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                        log(`  ⚠️ Cannot sign in as ${userData.email} - account may not exist`, 'error');
+                    } else {
+                        log(`  ❌ Error for ${userData.email}: ${error.message}`, 'error');
+                    }
+                }
+            }
+            
+            log('\n✅ Repair complete! Try signing in now.', 'success');
+        };
+
+        log('Firebase connected. Ready to seed data.\n', 'success');
+    </script>
+</body>
+</html>
+
+

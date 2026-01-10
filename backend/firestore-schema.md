@@ -4,11 +4,11 @@
 
 ```
 firestore/
-├── therapists/{therapistId}
-├── patients/{patientId}
-├── questions/{questionId}
-└── sessions/{sessionId}
-    └── trials/{trialId}
+├── users/{userId}                        # Unified user collection (therapists & patients)
+├── questions/{questionId}                # Exercise questions/items
+├── exercise_sessions/{sessionId}         # Session-level aggregated data
+├── question_responses/{responseId}       # Individual question responses
+└── exercise_scores/{scoreId}             # Legacy score tracking
 
 storage/
 └── questions/{questionId}/{filename}.jpg
@@ -41,23 +41,41 @@ Therapist profiles. Document ID = Firebase Auth UID.
 
 ---
 
-### `/patients/{patientId}`
+### `/patients/{patientId}` (now unified with `/users/{userId}`)
 
-Patient profiles linked to therapists.
+Patient profiles linked to therapists. Patients are users with role='patient'.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | string | ❌ | Real name (optional for privacy) |
-| `alias` | string | ✅ | Display name/identifier |
-| `assigned_therapist` | string | ✅ | Therapist UID (foreign key) |
+| `id` | string | ✅ | Patient UID (same as Auth UID) |
+| `name` | string | ✅ | Full name |
+| `email` | string | ✅ | Email address (from Auth) |
+| `role` | string | ✅ | Always "patient" for patients |
+| `diagnosis` | string | ❌ | Type of aphasia or condition |
+| `patientPhone` | string | ❌ | Patient's phone number |
+| `caregiverName` | string | ❌ | Primary caregiver's name |
+| `caregiverPhone` | string | ❌ | Caregiver's phone number |
+| `therapistId` | string | ✅ | Therapist UID (foreign key) |
+| `assignedModules` | array | ❌ | Therapy modules assigned (e.g., ["writing", "comprehension"]) |
+| `onboardingEmailSent` | boolean | ❌ | Whether onboarding email was sent |
+| `preferredLanguage` | string | ❌ | Language preference ('en' or 'ms') |
 | `created_at` | timestamp | ✅ | Registration time |
 
 **Example:**
 ```json
 {
+  "id": "patient_xyz789",
   "name": "John Doe",
-  "alias": "Patient A",
-  "assigned_therapist": "therapist_uid_123",
+  "email": "john.doe@email.com",
+  "role": "patient",
+  "diagnosis": "Broca's Aphasia",
+  "patientPhone": "+60123456789",
+  "caregiverName": "Jane Doe",
+  "caregiverPhone": "+60123456788",
+  "therapistId": "therapist_uid_123",
+  "assignedModules": ["writing", "comprehension"],
+  "onboardingEmailSent": true,
+  "preferredLanguage": "en",
   "created_at": "2024-01-20T14:00:00Z"
 }
 ```
@@ -97,47 +115,100 @@ Therapy exercise questions/items.
 
 ---
 
-### `/sessions/{sessionId}`
+### `/exercise_sessions/{sessionId}`
 
-Therapy session records.
+Comprehensive therapy session records with aggregated metrics.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `patient_id` | string | ✅ | Patient document ID |
-| `therapist_id` | string | ✅ | Therapist UID |
-| `start_time` | timestamp | ✅ | Session start |
-| `end_time` | timestamp | ❌ | Session end (null if active) |
-| `device_type` | string | ✅ | `"mobile"` or `"web"` |
-| `trial_count` | number | ❌ | Number of trials (denormalized) |
+| `id` | string | ✅ | Session document ID |
+| `patientId` | string | ✅ | Patient UID |
+| `therapistId` | string | ✅ | Therapist UID |
+| `exerciseId` | string | ✅ | Exercise identifier |
+| `exerciseTitle` | string | ✅ | Exercise name |
+| `module` | string | ✅ | Module type (writing/comprehension) |
+| `category` | string | ✅ | Exercise category |
+| `startTime` | timestamp | ✅ | Session start |
+| `endTime` | timestamp | ❌ | Session end (null if active) |
+| `totalTimeSeconds` | number | ✅ | Total time spent |
+| `activeTimeSeconds` | number | ✅ | Active working time |
+| `totalQuestions` | number | ✅ | Number of questions |
+| `correctAnswers` | number | ✅ | Correct answer count |
+| `incorrectAnswers` | number | ✅ | Incorrect answer count |
+| `questionsSkipped` | number | ❌ | Skipped question count |
+| `accuracyPercentage` | number | ✅ | Accuracy % |
+| `totalCuesGiven` | number | ✅ | Total cues provided |
+| `questionsWithCues` | number | ✅ | Questions that needed cues |
+| `cueTypeCount` | map | ✅ | Count per cue type |
+| `deviceType` | string | ❌ | Device used (web/android/ios) |
+| `metadata` | map | ❌ | Additional data (ML model used, etc.) |
 
 **Example:**
 ```json
 {
-  "patient_id": "patient_xyz789",
-  "therapist_id": "therapist_uid_123",
-  "start_time": "2024-02-01T10:00:00Z",
-  "end_time": "2024-02-01T10:30:00Z",
-  "device_type": "mobile",
-  "trial_count": 25
+  "id": "session_xyz789",
+  "patientId": "patient_xyz789",
+  "therapistId": "therapist_uid_123",
+  "exerciseId": "ex_writing_animals_001",
+  "exerciseTitle": "Animal Naming - Easy",
+  "module": "writing",
+  "category": "animals",
+  "startTime": "2024-02-01T10:00:00Z",
+  "endTime": "2024-02-01T10:30:00Z",
+  "totalTimeSeconds": 1800,
+  "activeTimeSeconds": 1650,
+  "totalQuestions": 10,
+  "correctAnswers": 7,
+  "incorrectAnswers": 3,
+  "questionsSkipped": 0,
+  "accuracyPercentage": 70.0,
+  "totalCuesGiven": 5,
+  "questionsWithCues": 3,
+  "cueTypeCount": {
+    "functional": 3,
+    "rhyming": 2
+  },
+  "deviceType": "web",
+  "metadata": {
+    "mlModelUsed": true,
+    "exerciseDifficulty": 2
+  }
 }
 ```
 
 ---
 
-### `/sessions/{sessionId}/trials/{trialId}`
+### `/question_responses/{responseId}`
 
-Individual question attempts within a session.
+Individual question responses with detailed timing and cue data (replaces trials subcollection).
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `question_id` | string | ✅ | Question document ID |
-| `response_time_seconds` | number | ✅ | Time to respond |
-| `correct` | boolean | ✅ | Answer correctness |
-| `cue_given` | boolean | ❌ | Whether a cue was provided |
-| `cue_type` | string | ❌ | Cue type if given |
-| `cue_stage` | number | ❌ | Cue hierarchy stage (0-7) |
-| `user_answer` | string | ❌ | User's response |
-| `timestamp` | timestamp | ✅ | Trial time |
+| `id` | string | ✅ | Response document ID |
+| `sessionId` | string | ✅ | Links to exercise_sessions |
+| `patientId` | string | ✅ | Patient UID |
+| `therapistId` | string | ✅ | Therapist UID (for filtering) |
+| `exerciseId` | string | ✅ | Exercise/question bank ID |
+| `questionIndex` | number | ✅ | Question order in exercise |
+| `questionText` | string | ✅ | The question asked |
+| `questionImageUrl` | string | ❌ | Image URL if applicable |
+| `userAnswer` | string | ❌ | User's response |
+| `correctAnswer` | string | ✅ | Correct answer |
+| `isCorrect` | boolean | ✅ | Answer correctness |
+| `presentedAt` | timestamp | ✅ | When question was shown |
+| `respondedAt` | timestamp | ❌ | When user submitted answer |
+| `responseTimeSeconds` | number | ✅ | Total time to respond |
+| `cueGiven` | boolean | ✅ | Whether a cue was provided |
+| `cueType` | string | ❌ | Type of cue given |
+| `cueStage` | number | ✅ | Cue hierarchy stage (0-7) |
+| `cueWaitSeconds` | number | ❌ | Time before first cue shown |
+| `timeAfterCueDisplayed` | number | ❌ | Time from cue display to answer |
+| `hintCount` | number | ✅ | Number of cues/hints shown |
+| `difficulty` | string | ❌ | Question difficulty level |
+| `category` | string | ❌ | Question category |
+| `module` | string | ❌ | Module type (writing/comprehension) |
+| `attemptNumber` | number | ❌ | Retry attempt number |
+| `metadata` | map | ❌ | Additional custom data |
 
 **Cue Types:**
 - `functional` - Describes function/use
@@ -151,14 +222,31 @@ Individual question attempts within a session.
 **Example:**
 ```json
 {
-  "question_id": "q_abc123",
-  "response_time_seconds": 15.5,
-  "correct": false,
-  "cue_given": true,
-  "cue_type": "phonemic",
-  "cue_stage": 3,
-  "user_answer": "dag",
-  "timestamp": "2024-02-01T10:05:30Z"
+  "id": "resp_abc123",
+  "sessionId": "session_xyz789",
+  "patientId": "patient_xyz789",
+  "therapistId": "therapist_uid_123",
+  "exerciseId": "ex_writing_animals_001",
+  "questionIndex": 3,
+  "questionText": "What is this animal?",
+  "questionImageUrl": "https://...",
+  "userAnswer": "dag",
+  "correctAnswer": "dog",
+  "isCorrect": false,
+  "presentedAt": "2024-02-01T10:05:00Z",
+  "respondedAt": "2024-02-01T10:05:30Z",
+  "responseTimeSeconds": 30,
+  "cueGiven": true,
+  "cueType": "functional",
+  "cueStage": 1,
+  "cueWaitSeconds": 15,
+  "timeAfterCueDisplayed": 15,
+  "hintCount": 1,
+  "difficulty": "easy",
+  "category": "animals",
+  "module": "writing",
+  "attemptNumber": 1,
+  "metadata": {}
 }
 ```
 
@@ -190,11 +278,17 @@ storage/
 Collection: questions
 Fields: module (ASC), category (ASC), created_at (DESC)
 
-Collection: sessions
-Fields: patient_id (ASC), start_time (DESC)
+Collection: exercise_sessions
+Fields: patientId (ASC), startTime (DESC)
+Fields: therapistId (ASC), startTime (DESC)
 
-Collection: sessions/{sessionId}/trials
-Fields: timestamp (ASC)
+Collection: question_responses
+Fields: patientId (ASC), presentedAt (DESC)
+Fields: sessionId (ASC), questionIndex (ASC)
+Fields: therapistId (ASC), presentedAt (DESC)
+
+Collection: users
+Fields: role (ASC), therapistId (ASC), createdAt (DESC)
 ```
 
 ---
@@ -203,26 +297,33 @@ Fields: timestamp (ASC)
 
 | Collection | Read | Create | Update | Delete |
 |------------|------|--------|--------|--------|
-| therapists | Self, Admin | Self | Self (no email) | Admin |
-| patients | Therapist, Self, Admin | Therapist | Therapist | Therapist, Admin |
+| users | Self, Assigned Therapist, Admin | Therapist (for patients), Self | Self, Assigned Therapist | Admin |
 | questions | Authenticated | Therapist, Admin | Creator, Admin | Admin |
-| sessions | Therapist, Patient, Admin | Therapist, Patient | Therapist, Patient | Admin |
-| trials | Therapist, Patient, Admin | Authenticated | ❌ | Admin |
+| exercise_sessions | Patient (self), Therapist (their patients), Admin | Patient | Patient, Therapist | Admin |
+| question_responses | Patient (self), Therapist (their patients), Admin | Patient | ❌ | Admin |
+| exercise_scores | Patient (self), Therapist (their patients), Admin | Patient | ❌ | Admin |
 
 ---
 
 ## Data Flow
 
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Therapist  │────▶│   Patient   │────▶│   Session   │
-│  (creates)  │     │ (assigned)  │     │  (therapy)  │
-└─────────────┘     └─────────────┘     └──────┬──────┘
-                                               │
-┌─────────────┐                                ▼
-│  Questions  │◀───────────────────────┌─────────────┐
-│   (items)   │                        │   Trials    │
-└─────────────┘                        │ (attempts)  │
-                                       └─────────────┘
+┌──────────────┐     ┌──────────────┐     ┌──────────────────┐
+│  Therapist   │────▶│   Patient    │────▶│ Exercise Session │
+│  (creates)   │     │  (assigned)  │     │  (aggregated)    │
+└──────────────┘     └──────────────┘     └─────────┬────────┘
+                                                     │
+┌──────────────┐                                    ▼
+│  Questions   │◀──────────────────────┌────────────────────┐
+│   (items)    │                       │ Question Responses │
+└──────────────┘                       │  (detailed data)   │
+                                       └────────────────────┘
+
+Features Tracked:
+• Response times (total, before cue, after cue)
+• Cue usage (type, stage, count)
+• Timing metrics (question-level and session-level)
+• Accuracy and performance metrics
+• Device and context information
 ```
 

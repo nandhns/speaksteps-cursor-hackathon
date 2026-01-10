@@ -1,0 +1,175 @@
+{
+  "@@locale": "en",
+  
+  "appTitle": "SpeakSteps",
+  "loginTitle": "Welcome to SpeakSteps",
+  "loginSubtitle": "Your speech therapy companion",
+  
+  "emailLabel": "Email",
+  "passwordLabel": "Password",
+  "signIn": "Sign In",
+  "signUp": "Sign Up",
+  "forgotPassword": "Forgot Password?",
+  
+  "therapistRole": "Therapist",
+  "patientRole": "Patient",
+  "selectRole": "I am a...",
+  
+  "homeTitle": "Home",
+  "exercisesTitle": "Exercises",
+  "progressTitle": "Progress",
+  "settingsTitle": "Settings",
+  
+  "writingModule": "Writing",
+  "comprehensionModule": "Comprehension",
+  "selectModule": "Select a module to start",
+  
+  "categoryAnimals": "Animals",
+  "categoryFood": "Food",
+  "categoryBodyParts": "Body Parts",
+  "categoryClothing": "Clothing",
+  "categoryHousehold": "Household",
+  "categoryTransport": "Transport",
+  
+  "difficultyEasy": "Easy",
+  "difficultyMedium": "Medium",
+  "difficultyHard": "Hard",
+  "selectDifficulty": "Select difficulty",
+  
+  "startExercise": "Start Exercise",
+  "nextQuestion": "Next Question",
+  "submitAnswer": "Submit",
+  "skipQuestion": "Skip",
+  "finishExercise": "Finish",
+  
+  "correctAnswer": "Correct!",
+  "incorrectAnswer": "Try Again",
+  "showHint": "Show Hint",
+  "hideHint": "Hide Hint",
+  
+  "questionLabel": "Question {current} of {total}",
+  "@questionLabel": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  
+  "typeYourAnswer": "Type your answer here...",
+  "selectTheCorrectImage": "Select the correct image",
+  "whatIsThis": "What is this?",
+  "listenAndSelect": "Listen and select the matching picture",
+  
+  "exerciseComplete": "Exercise Complete!",
+  "yourScore": "Your Score: {score}/{total}",
+  "@yourScore": {
+    "placeholders": {
+      "score": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "timeTaken": "Time: {minutes}m {seconds}s",
+  "@timeTaken": {
+    "placeholders": {
+      "minutes": {"type": "int"},
+      "seconds": {"type": "int"}
+    }
+  },
+  "hintsUsed": "Hints Used: {count}",
+  "@hintsUsed": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  
+  "tryAgain": "Try Again",
+  "backToHome": "Back to Home",
+  "viewProgress": "View Progress",
+  
+  "cueFunction": "Think about what this is used for...",
+  "cueRhyming": "It rhymes with: {rhyme}",
+  "@cueRhyming": {
+    "placeholders": {
+      "rhyme": {"type": "String"}
+    }
+  },
+  "cueFirstLetter": "It starts with: {letter}",
+  "@cueFirstLetter": {
+    "placeholders": {
+      "letter": {"type": "String"}
+    }
+  },
+  "cueSpelling": "Spelling: {spelling}",
+  "@cueSpelling": {
+    "placeholders": {
+      "spelling": {"type": "String"}
+    }
+  },
+  
+  "noExercisesAvailable": "No exercises available",
+  "loadingExercises": "Loading exercises...",
+  "errorLoadingExercises": "Error loading exercises",
+  
+  "language": "Language",
+  "english": "English",
+  "bahasaMelayu": "Bahasa Melayu",
+  "changeLanguage": "Change Language",
+  
+  "logout": "Logout",
+  "profile": "Profile",
+  "help": "Help",
+  
+  "createAccount": "Create Account",
+  "welcomeBack": "Welcome back",
+  "createYourAccount": "Create your account",
+  "startTherapyJourney": "Start your therapy journey today",
+  "signInToContinue": "Sign in to continue your progress",
+  "fullName": "Full name",
+  "enterFullName": "Enter your full name",
+  "emailAddress": "Email address",
+  "emailPlaceholder": "you@example.com",
+  "enterPassword": "Enter your password",
+  "pleaseEnterName": "Please enter your name",
+  "pleaseEnterEmail": "Please enter your email",
+  "pleaseEnterValidEmail": "Please enter a valid email",
+  "pleaseEnterPassword": "Please enter your password",
+  "passwordMinLength": "Password must be at least 6 characters",
+  "alreadyHaveAccount": "Already have an account?",
+  "dontHaveAccount": "Don't have an account?",
+  "signUpFailed": "Sign up failed",
+  "signInFailed": "Sign in failed",
+  "aphasiaPlatform": "Aphasia Rehabilitation Platform",
+  
+  "exitConfirmTitle": "Exit Exercise?",
+  "exitConfirmMessage": "You haven't finished this exercise yet. Your progress will be saved.",
+  "exitConfirmStay": "Continue Exercise",
+  "exitConfirmLeave": "Exit",
+  
+  "completed": "Completed",
+  "notStarted": "Not Started",
+  "inProgress": "In Progress",
+  "scoreLabel": "Score: {score}/{total}",
+  "@scoreLabel": {
+    "placeholders": {
+      "score": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "lastAttempt": "Last attempt: {date}",
+  "@lastAttempt": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "sortBy": "Sort:",
+  "sortAZ": "A-Z",
+  "sortZA": "Z-A",
+  "downloadReport": "Download Report (PDF)",
+  "import": "Import",
+  "addPatient": "Add Patient",
+  "pleaseTypeAnswer": "Please type your answer",
+  "pleaseSelectAnswer": "Please select an answer",
+  "pleaseSelectImage": "Please select an image",
+  "done": "Done"
+}
+
