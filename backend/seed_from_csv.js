@@ -99,25 +99,29 @@ function parseExercisesFromCSV(csvPath) {
             // We need to extract the actual word from the instruction text
             
             // Build imageOptions array from option_1, option_2, option_3, option_4
+            const imageOptions = [];
             if (row.option_1) {
-              question.imageOptions.push(row.option_1);
+              imageOptions.push(row.option_1);
               question.options.push(row.option_1);
             }
             if (row.option_2) {
-              question.imageOptions.push(row.option_2);
+              imageOptions.push(row.option_2);
               question.options.push(row.option_2);
             }
             if (row.option_3) {
-              question.imageOptions.push(row.option_3);
+              imageOptions.push(row.option_3);
               question.options.push(row.option_3);
             }
             if (row.option_4) {
-              question.imageOptions.push(row.option_4);
+              imageOptions.push(row.option_4);
               question.options.push(row.option_4);
             }
+            question.imageOptions = imageOptions;
             
-            // correct_answer is 1, 2, 3, or 4 - the option index (1-based)
-            question.correctAnswer = parseInt(row.correct_answer);
+            // correct_answer is an image path - find its index in imageOptions
+            const correctImagePath = row.correct_answer.trim();
+            const correctIndex = imageOptions.findIndex(img => img.trim() === correctImagePath);
+            question.correctAnswer = correctIndex >= 0 ? correctIndex : 0;
             
             // Extract the word from stimulus_value (e.g., "Pilih gambar: KUCING" -> "kucing")
             const match = row.stimulus_value.match(/:\s*(.+)$/);
@@ -246,28 +250,24 @@ async function seedDatabase() {
         difficulty: exercise.difficulty,
         type: exercise.type,
         exerciseType: exercise.exerciseType,
+        questions: exercise.questions.map(q => ({
+          id: q.id,
+          questionType: q.questionType,
+          stimulusType: q.stimulusType,
+          stimulusValue: q.stimulusValue,
+          correctAnswer: q.correctAnswer,
+          options: q.options,
+          imageOptions: q.imageOptions,
+          audioUrl: q.audioUrl || null,
+          cueHierarchy: q.cueHierarchy,
+        })),
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       };
 
       await exerciseRef.set(exerciseData);
       exerciseCount++;
-
-      // Add questions subcollection
-      for (const question of exercise.questions) {
-        await exerciseRef.collection('questions').doc(question.id).set({
-          questionType: question.questionType,
-          stimulusType: question.stimulusType,
-          stimulusValue: question.stimulusValue,
-          correctAnswer: question.correctAnswer,
-          options: question.options,
-          imageOptions: question.imageOptions,
-          audioUrl: question.audioUrl || null,
-          cueHierarchy: question.cueHierarchy,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-        questionCount++;
-      }
+      questionCount += exercise.questions.length;
 
       console.log(`✅ ${exercise.id}: ${exercise.title} (${exercise.questions.length} questions)`);
     }
