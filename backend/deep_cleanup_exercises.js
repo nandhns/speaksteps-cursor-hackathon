@@ -1,13 +1,14 @@
 /**
- * Firestore Cleanup Script for SpeakSteps
+ * Deep Cleanup Script: Remove Duplicates and Old Exercises
  * 
  * This script:
- * 1. Deletes all existing exercises from Firestore
- * 2. Re-seeds with clean data from exercises.csv (mapped to proper structure)
- * 3. Removes duplicates and miscategorized exercises
+ * 1. Deletes ALL exercises from Firestore
+ * 2. Re-seeds ONLY from the CSV (clean data)
+ * 3. Removes duplicates
+ * 4. Ensures proper module and category mapping
  * 
  * Usage:
- * node cleanup_firestore.js
+ * node deep_cleanup_exercises.js
  */
 
 const admin = require('firebase-admin');
@@ -27,7 +28,6 @@ if (fs.existsSync(serviceKeyPath)) {
   credential = admin.credential.applicationDefault();
 } else {
   console.error('❌ Service account key not found!');
-  console.error('Please place serviceAccountKey.json in the backend folder');
   process.exit(1);
 }
 
@@ -43,7 +43,7 @@ const categoryMap = {
   'haiwan': 'animal',
   'makanan': 'food',
   'anggota_badan': 'bodyParts',
-  'badan': 'bodyParts', // Alternative category name
+  'badan': 'bodyParts',
   'kata_kerja': 'verbs',
 };
 
@@ -51,6 +51,8 @@ const categoryMap = {
 const moduleMap = {
   'penulisan': 'writing',
   'kefahaman': 'comprehension',
+  'writing': 'writing',       // Already in English
+  'comprehension': 'comprehension', // Already in English
 };
 
 // Map CSV difficulty to numeric level
@@ -60,39 +62,42 @@ const difficultyMap = {
   'hard': 3,
 };
 
-async function cleanupFirestore() {
+async function deepCleanup() {
   try {
-    console.log('🧹 Starting Firestore cleanup...\n');
+    console.log('\n🧹 DEEP CLEANUP: Removing old/duplicate exercises\n');
 
-    // Step 1: Delete all existing exercises
-    console.log('Step 1: Deleting existing exercises...');
+    // Step 1: Delete ALL exercises
+    console.log('Step 1: Deleting ALL exercises...');
     const exercisesSnapshot = await db.collection('exercises').get();
     console.log(`  Found ${exercisesSnapshot.size} exercises to delete`);
     
+    let deleteCount = 0;
     for (const doc of exercisesSnapshot.docs) {
       await db.collection('exercises').doc(doc.id).delete();
+      deleteCount++;
+      if (deleteCount % 10 === 0) {
+        console.log(`  ✓ Deleted ${deleteCount}/${exercisesSnapshot.size}`);
+      }
     }
-    console.log('✅ All exercises deleted\n');
+    console.log(`✅ All ${deleteCount} exercises deleted\n`);
 
-    // Step 2: Load and parse CSV data
+    // Step 2: Load and parse CSV
     console.log('Step 2: Loading exercises from CSV...');
     const csvPath = path.join(__dirname, 'data', 'exercises.csv');
     const csvContent = fs.readFileSync(csvPath, 'utf-8');
     
-    // Parse CSV using csv-parse library to handle quoted fields correctly
     const records = parse(csvContent, {
       columns: true,
       skip_empty_lines: true,
       trim: true,
-      relax_column_count: true, // Allow inconsistent column count
+      relax_column_count: true,
     });
     
     console.log(`  Loaded ${records.length} records from CSV\n`);
 
-    // Step 3: Group and transform exercises
-    console.log('Step 3: Processing and validating exercises...');
+    // Step 3: Process and deduplicate
+    console.log('Step 3: Processing exercises and removing duplicates...');
     
-    // Group by exercise_id to avoid duplicates
     const exercisesMap = new Map();
     const skipped = [];
     
@@ -100,29 +105,43 @@ async function cleanupFirestore() {
       // Skip empty rows
       if (!record.exercise_id) continue;
       
-      // Skip clothing category (miscategorization)
-      if (record.category && record.category.toLowerCase() === 'pakaian') {
-        skipped.push(`${record.exercise_id} (clothing category)`);
+      // Validate required fields
+      if (!record.module || !record.category || !record.title) {
+        skipped.push(`${record.exercise_id} (missing required fields)`);
         continue;
       }
       
-      // Only process known categories
+      // Skip if already processed (deduplication)
+      if (exercisesMap.has(record.exercise_id)) {
+        skipped.push(`${record.exercise_id} (duplicate)`);
+        continue;
+      }
+      
+      // Skip unknown categories
       const normalizedCategory = record.category?.toLowerCase() || '';
       if (!categoryMap[normalizedCategory]) {
         skipped.push(`${record.exercise_id} (unknown category: ${record.category})`);
         continue;
       }
       
-      // If we haven't seen this exercise_id yet, add it
-      if (!exercisesMap.has(record.exercise_id)) {
-        exercisesMap.set(record.exercise_id, record);
+      // Skip unknown modules
+      const normalizedModule = record.module?.toLowerCase() || '';
+      if (!moduleMap[normalizedModule]) {
+        skipped.push(`${record.exercise_id} (unknown module: ${record.module})`);
+        continue;
       }
+
+      // Add to map
+      exercisesMap.set(record.exercise_id, record);
     }
     
-    console.log(`  Processing ${exercisesMap.size} unique exercises`);
+    console.log(`  Processing ${exercisesMap.size} unique, valid exercises`);
     if (skipped.length > 0) {
-      console.log(`  Skipped ${skipped.length} problematic exercises:`);
-      skipped.forEach(s => console.log(`    - ${s}`));
+      console.log(`  Skipped ${skipped.length} exercises:`);
+      skipped.slice(0, 10).forEach(s => console.log(`    - ${s}`));
+      if (skipped.length > 10) {
+        console.log(`    ... and ${skipped.length - 10} more`);
+      }
     }
     console.log('');
 
@@ -135,8 +154,8 @@ async function cleanupFirestore() {
     let batch = db.batch();
     
     for (const [exerciseId, record] of exercisesMap.entries()) {
-      const moduleType = moduleMap[record.module?.toLowerCase()] || 'unknown';
-      const category = categoryMap[record.category?.toLowerCase()] || 'unknown';
+      const moduleType = moduleMap[record.module?.toLowerCase()];
+      const category = categoryMap[record.category?.toLowerCase()];
       const difficulty = difficultyMap[record.difficulty?.toLowerCase()] || 1;
       
       // Create exercise document
@@ -144,7 +163,7 @@ async function cleanupFirestore() {
         id: exerciseId,
         title: record.title || '',
         description: record.description || '',
-        module: moduleType,  // Store the MAPPED module type (writing/comprehension), not the CSV name
+        module: moduleType,  // Store the mapped type, not the CSV name
         type: moduleType,
         exerciseType: moduleType,
         category: category,
@@ -188,11 +207,11 @@ async function cleanupFirestore() {
       uploadCount++;
       batchCount++;
       
-      // Commit batch when it reaches size and create new batch
+      // Commit batch when it reaches size
       if (batchCount >= BATCH_SIZE) {
         await batch.commit();
         console.log(`  ✓ Uploaded ${uploadCount}/${exercisesMap.size} exercises`);
-        batch = db.batch(); // Create new batch
+        batch = db.batch();
         batchCount = 0;
       }
     }
@@ -202,14 +221,14 @@ async function cleanupFirestore() {
       await batch.commit();
     }
     
-    console.log(`✅ Successfully uploaded ${uploadCount} cleaned exercises\n`);
+    console.log(`✅ Successfully uploaded ${uploadCount} clean exercises\n`);
 
-    // Step 5: Verify upload
-    console.log('Step 5: Verifying Firestore data...');
+    // Step 5: Verify
+    console.log('Step 5: Verifying upload...');
     const finalSnapshot = await db.collection('exercises').get();
-    console.log(`  Final exercise count: ${finalSnapshot.size}`);
+    console.log(`  Final exercise count: ${finalSnapshot.size}\n`);
     
-    // Show summary by category
+    // Show summary
     const categorySummary = new Map();
     const typeSummary = new Map();
     
@@ -222,23 +241,27 @@ async function cleanupFirestore() {
       typeSummary.set(typ, (typeSummary.get(typ) || 0) + 1);
     }
     
+    console.log('  By Type:');
+    for (const [typ, count] of typeSummary.entries()) {
+      console.log(`    - ${typ}: ${count}`);
+    }
+    
     console.log('\n  By Category:');
     for (const [cat, count] of categorySummary.entries()) {
       console.log(`    - ${cat}: ${count}`);
     }
-    
-    console.log('\n  By Type:');
-    for (const [typ, count] of typeSummary.entries()) {
-      console.log(`    - ${typ}: ${count}`);
-    }
 
-    console.log('\n✅ Firestore cleanup completed successfully!');
+    console.log('\n✨ Deep cleanup completed successfully!');
     console.log('\n📋 Summary:');
-    console.log(`  • Deleted all old exercises`);
-    console.log(`  • Loaded and processed ${exercisesMap.size} unique exercises from CSV`);
-    console.log(`  • Skipped ${skipped.length} problematic/duplicate entries`);
-    console.log(`  • Successfully uploaded ${uploadCount} cleaned exercises`);
-    console.log('\n✨ Database is now clean and ready for Firebase authentication!');
+    console.log(`  • Deleted all old/duplicate exercises`);
+    console.log(`  • Loaded ${records.length} records from CSV`);
+    console.log(`  • Processed ${exercisesMap.size} unique, valid exercises`);
+    console.log(`  • Skipped ${skipped.length} problematic entries`);
+    console.log(`  • Successfully uploaded ${uploadCount} clean exercises`);
+    console.log('\n💡 Next steps:');
+    console.log(`  1. Patient should see only ${uploadCount} exercises (no duplicates)`);
+    console.log(`  2. Categories should be properly organized`);
+    console.log(`  3. All exercises should have correct module types`);
 
     process.exit(0);
   } catch (error) {
@@ -248,4 +271,4 @@ async function cleanupFirestore() {
 }
 
 // Run cleanup
-cleanupFirestore();
+deepCleanup();

@@ -333,4 +333,7 @@ class AppLocalizationsMs extends AppLocalizations {
 
   @override
   String get done => 'Selesai';
+
+  @override
+  String get availableExercises => 'Latihan Tersedia';
 }

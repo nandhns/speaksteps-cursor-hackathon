@@ -170,6 +170,7 @@
   "pleaseTypeAnswer": "Please type your answer",
   "pleaseSelectAnswer": "Please select an answer",
   "pleaseSelectImage": "Please select an image",
-  "done": "Done"
+  "done": "Done",
+  "availableExercises": "Available Exercises"
 }
 

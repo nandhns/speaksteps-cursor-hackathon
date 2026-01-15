@@ -9,6 +9,7 @@ import '../../models/exercise_score_model.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/ui/app_card.dart';
 import '../../widgets/language_selector.dart';
+import '../../l10n/app_localizations.dart';
 import '../../l10n/app_strings.dart';
 import 'writing_exercise_screen.dart';
 import 'comprehension_exercise_screen.dart';
@@ -594,7 +595,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Available Exercises',
+          AppLocalizations.of(context)!.availableExercises,
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: AppTheme.spacingLg),

@@ -247,9 +247,17 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
             ...widget.scores.take(20).map((score) {
               final percentage = score.maxScore > 0 ? (score.score / score.maxScore * 100) : 0;
               final isPassing = percentage >= 70;
+              
+              // Find previous attempt for this exercise
+              final previousScore = _getPreviousScore(score);
+              final hasImprovement = previousScore != null;
+              final scoreDiff = hasImprovement 
+                  ? ((percentage - (previousScore.maxScore > 0 ? (previousScore.score / previousScore.maxScore * 100) : 0)))
+                  : 0.0;
+              
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
+                child: ExpansionTile(
                   leading: SizedBox(
                     width: 40,
                     height: 40,
@@ -274,37 +282,70 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 4),
-                      Text(
-                        'Completed: ${DateFormat('MMM d, yyyy • h:mm a').format(score.completedAt)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      if (score.answer != null && score.correctAnswer != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'Answer: ${score.answer}',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        Text(
-                          'Correct: ${score.correctAnswer}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: score.answer == score.correctAnswer
-                                ? Colors.green.shade700
-                                : Colors.red.shade700,
+                      Row(
+                        children: [
+                          Icon(Icons.calendar_today, size: 12, color: Colors.grey.shade600),
+                          const SizedBox(width: 4),
+                          Text(
+                            DateFormat('MMM d, yyyy • h:mm a').format(score.completedAt),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          if (score.metadata?['timeTaken'] != null) ...[
+                            Icon(Icons.timer, size: 12, color: Colors.grey.shade600),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${score.metadata!['timeTaken']}s',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          if (score.metadata?['cueLevel'] != null) ...[
+                            Icon(Icons.help_outline, size: 12, color: Colors.blue.shade600),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Cues: ${score.metadata!['cueLevel']}',
+                              style: TextStyle(fontSize: 12, color: Colors.blue.shade600),
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (hasImprovement) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              scoreDiff > 0 ? Icons.trending_up : 
+                              scoreDiff < 0 ? Icons.trending_down : Icons.trending_flat,
+                              size: 12,
+                              color: scoreDiff > 0 ? Colors.green.shade600 : 
+                                     scoreDiff < 0 ? Colors.red.shade600 : Colors.grey.shade600,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              scoreDiff > 0 ? '+${scoreDiff.toStringAsFixed(0)}%' : 
+                              scoreDiff < 0 ? '${scoreDiff.toStringAsFixed(0)}%' : 'No change',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: scoreDiff > 0 ? Colors.green.shade600 : 
+                                       scoreDiff < 0 ? Colors.red.shade600 : Colors.grey.shade600,
+                              ),
+                            ),
+                            Text(
+                              ' vs previous',
+                              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                            ),
+                          ],
                         ),
                       ],
-                      if (score.metadata?['timeTaken'] != null)
-                        Text(
-                          'Time: ${score.metadata!['timeTaken']}s',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
                     ],
                   ),
                   trailing: Column(
@@ -325,31 +366,74 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        '${((score.score / score.maxScore) * 100).toStringAsFixed(0)}%',
+                        '${percentage.toStringAsFixed(0)}%',
                         style: TextStyle(
                           fontSize: 11,
                           color: Colors.grey.shade600,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 8),
-                      TextButton.icon(
-                        onPressed: () => _showExerciseQuestions(
-                          score.exerciseId,
-                          score.exerciseTitle,
-                        ),
-                        icon: const Icon(Icons.quiz_outlined, size: 16),
-                        label: const Text('View Questions'),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          minimumSize: const Size(0, 32),
-                        ),
-                      ),
                     ],
                   ),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (hasImprovement) ...[
+                            Text(
+                              'Progress Comparison',
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildComparisonCard(
+                                    'Previous Attempt',
+                                    previousScore,
+                                    Colors.grey,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildComparisonCard(
+                                    'Current Attempt',
+                                    score,
+                                    isPassing ? Colors.green : Colors.orange,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          if (score.answer != null && score.correctAnswer != null) ...[
+                            Text(
+                              'Answer Details',
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text('Given: ${score.answer}', style: const TextStyle(fontSize: 12)),
+                            Text('Correct: ${score.correctAnswer}', style: const TextStyle(fontSize: 12)),
+                            const SizedBox(height: 16),
+                          ],
+                          TextButton.icon(
+                            onPressed: () => _showExerciseQuestions(
+                              score.exerciseId,
+                              score.exerciseTitle,
+                            ),
+                            icon: const Icon(Icons.quiz_outlined, size: 16),
+                            label: const Text('View Questions'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               );
             }),
@@ -1172,6 +1256,76 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
           ),
         ),
       ],
+    );
+  }
+
+  ExerciseScore? _getPreviousScore(ExerciseScore currentScore) {
+    // Find all attempts of this exercise, sorted by date (most recent first)
+    final attempts = widget.scores
+        .where((s) => s.exerciseId == currentScore.exerciseId && s.id != currentScore.id)
+        .toList()
+      ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
+    return attempts.isEmpty ? null : attempts.first;
+  }
+
+  Widget _buildComparisonCard(String label, ExerciseScore score, MaterialColor color) {
+    final percentage = score.maxScore > 0 ? (score.score / score.maxScore * 100) : 0;
+    return Card(
+      color: color.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: color.shade700,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${score.score}/${score.maxScore}',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: color.shade700,
+              ),
+            ),
+            Text(
+              '${percentage.toStringAsFixed(0)}%',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            if (score.metadata?['timeTaken'] != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Time: ${score.metadata!['timeTaken']}s',
+                style: const TextStyle(fontSize: 11),
+              ),
+            ],
+            if (score.metadata?['cueLevel'] != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Cues: ${score.metadata!['cueLevel']}',
+                style: const TextStyle(fontSize: 11),
+              ),
+            ],
+            const SizedBox(height: 4),
+            Text(
+              DateFormat('MMM d, h:mm a').format(score.completedAt),
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

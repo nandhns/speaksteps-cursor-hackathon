@@ -709,6 +709,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Done'**
   String get done;
+
+  /// No description provided for @availableExercises.
+  ///
+  /// In en, this message translates to:
+  /// **'Available Exercises'**
+  String get availableExercises;
 }
 
 class _AppLocalizationsDelegate

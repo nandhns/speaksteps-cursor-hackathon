@@ -332,4 +332,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get done => 'Done';
+
+  @override
+  String get availableExercises => 'Available Exercises';
 }

@@ -153,17 +153,17 @@ class FirebaseService {
       for (final doc in snapshot.docs) {
         final exerciseData = doc.data();
         
-        // Fetch questions subcollection
-        final questionsSnapshot = await doc.reference.collection('questions').get();
-        final questions = questionsSnapshot.docs.map((qDoc) {
-          final qData = qDoc.data();
+        // Use questions from the exercise document itself (not subcollection)
+        final rawQuestions = (exerciseData['questions'] as List<dynamic>?) ?? [];
+        final questions = rawQuestions.map((q) {
+          final qData = (q as Map<String, dynamic>?) ?? {};
           
           // Map question data properly
           return {
-            'id': qDoc.id,
+            'id': qData['id'] ?? qData['questionId'] ?? '',
             'imageUrl': qData['stimulusType'] == 'image' ? qData['stimulusValue'] : null,
-            'audioUrl': qData['audioUrl'],
-            'correctAnswer': qData['correctAnswer'] ?? '',
+            'audioUrl': qData['audioUrl'] ?? '',
+            'correctAnswer': (qData['correctAnswer'] ?? '').toString(),
             'options': qData['options'] ?? [],
             'imageOptions': qData['imageOptions'] ?? [],
             'cueHierarchy': qData['cueHierarchy'] ?? {},
@@ -230,15 +230,15 @@ class FirebaseService {
       if (doc.exists) {
         final exerciseData = doc.data()!;
         
-        // Fetch questions subcollection
-        final questionsSnapshot = await doc.reference.collection('questions').get();
-        final questions = questionsSnapshot.docs.map((qDoc) {
-          final qData = qDoc.data();
+        // Use questions from the exercise document itself (not subcollection)
+        final rawQuestions = (exerciseData['questions'] as List<dynamic>?) ?? [];
+        final questions = rawQuestions.map((q) {
+          final qData = (q as Map<String, dynamic>?) ?? {};
           return {
-            'id': qDoc.id,
+            'id': qData['id'] ?? qData['questionId'] ?? '',
             'imageUrl': qData['stimulusType'] == 'image' ? qData['stimulusValue'] : null,
-            'audioUrl': qData['audioUrl'],
-            'correctAnswer': qData['correctAnswer'] ?? '',
+            'audioUrl': qData['audioUrl'] ?? '',
+            'correctAnswer': (qData['correctAnswer'] ?? '').toString(),
             'options': qData['options'] ?? [],
             'imageOptions': qData['imageOptions'] ?? [],
             'cueHierarchy': qData['cueHierarchy'] ?? {},
