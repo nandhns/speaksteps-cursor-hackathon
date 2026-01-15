@@ -212,6 +212,36 @@ const exercises = [
     ],
   },
   
+  // Comprehension - Body Parts - Medium
+  {
+    id: 'comprehension_body_medium',
+    title: 'Anggota Badan - Sederhana',
+    description: 'Pilih gambar yang betul mengikut perkataan',
+    type: 'comprehension',
+    category: 'bodyParts',
+    exerciseType: 'comprehension',
+    options: [],
+    difficulty: 2,
+    questions: [
+      {
+        id: 'c_body_med_1',
+        correctAnswer: 'hidung',
+        options: ['hidung', 'mulut', 'telinga', 'mata'],
+        imageOptions: [],
+        audioUrl: 'hidung',
+        cueHierarchy: {
+          functional: 'Bahagian badan untuk menghidu dan bernafas',
+          rhyming: 'Ia berima dengan "hidung"',
+          written_initial: 'h_ _ _ _ _',
+          spelling: 'h-i-d-u-n-g',
+          sentence_completion: 'Saya bernafas dengan _____',
+          phonemic: 'Ia bermula dengan bunyi "hi"',
+          modeling: 'hidung',
+        },
+      },
+    ],
+  },
+  
   // Comprehension - Body Parts - Hard
   {
     id: 'comprehension_body_hard',
@@ -288,6 +318,36 @@ const exercises = [
     ],
   },
   
+  // Comprehension - Food - Medium
+  {
+    id: 'comprehension_food_medium',
+    title: 'Makanan - Sederhana',
+    description: 'Pilih gambar yang betul mengikut perkataan',
+    type: 'comprehension',
+    category: 'food',
+    exerciseType: 'comprehension',
+    options: [],
+    difficulty: 2,
+    questions: [
+      {
+        id: 'c_food_med_1',
+        correctAnswer: 'telur',
+        options: ['telur', 'roti', 'nasi', 'susu'],
+        imageOptions: [],
+        audioUrl: 'telur',
+        cueHierarchy: {
+          functional: 'Makanan berprotein yang boleh digoreng atau direbus',
+          rhyming: 'Ia berima dengan "helur"',
+          written_initial: 't_ _ _ _',
+          spelling: 't-e-l-u-r',
+          sentence_completion: 'Untuk sarapan saya makan _____',
+          phonemic: 'Ia bermula dengan bunyi "te"',
+          modeling: 'telur',
+        },
+      },
+    ],
+  },
+  
   // Comprehension - Food - Hard
   {
     id: 'comprehension_food_hard',
@@ -318,81 +378,6 @@ const exercises = [
     ],
   },
   
-  // Comprehension - Clothing - Easy
-  {
-    id: 'comprehension_clothing_easy',
-    title: 'Pakaian - Mudah',
-    description: 'Pilih gambar yang betul mengikut perkataan',
-    type: 'comprehension',
-    category: 'clothing',
-    exerciseType: 'comprehension',
-    options: [],
-    difficulty: 1,
-    questions: [
-      {
-        id: 'c_clothing_easy_1',
-        correctAnswer: 'baju',
-        options: ['baju', 'tangan', 'nasi', 'kucing'], // Different contexts - easy
-        imageOptions: [],
-        audioUrl: 'baju',
-        cueHierarchy: {
-          functional: 'Pakaian ini dipakai di bahagian badan atas',
-          rhyming: 'Ia berima dengan "laju"',
-          written_initial: 'b_ _ _',
-          spelling: 'b-a-j-u',
-          sentence_completion: 'Saya pakai _____ baru untuk pergi kenduri',
-          phonemic: 'Ia bermula dengan bunyi "ba"',
-          modeling: 'baju',
-        },
-      },
-      {
-        id: 'c_clothing_easy_2',
-        correctAnswer: 'kasut',
-        options: ['kasut', 'mata', 'roti', 'ayam'], // Different contexts - easy
-        imageOptions: [],
-        audioUrl: 'kasut',
-        cueHierarchy: {
-          functional: 'Pakaian ini dipakai di kaki',
-          rhyming: 'Ia berima dengan "kasut"',
-          written_initial: 'k_ _ _ _',
-          spelling: 'k-a-s-u-t',
-          sentence_completion: 'Saya pakai _____ untuk pergi sekolah',
-          phonemic: 'Ia bermula dengan bunyi "ka"',
-          modeling: 'kasut',
-        },
-      },
-    ],
-  },
-  
-  // Comprehension - Clothing - Hard
-  {
-    id: 'comprehension_clothing_hard',
-    title: 'Pakaian - Sukar',
-    description: 'Pilih gambar yang betul mengikut perkataan',
-    type: 'comprehension',
-    category: 'clothing',
-    exerciseType: 'comprehension',
-    options: [],
-    difficulty: 3,
-    questions: [
-      {
-        id: 'c_clothing_hard_1',
-        correctAnswer: 'jaket',
-        options: ['jaket', 'kot', 'sweater', 'baju'], // Same context (upper wear) - hard
-        imageOptions: [],
-        audioUrl: 'jaket',
-        cueHierarchy: {
-          functional: 'Pakaian ini dipakai apabila sejuk untuk menutup baju',
-          rhyming: 'Ia berima dengan "raket"',
-          written_initial: 'j_ _ _ _',
-          spelling: 'j-a-k-e-t',
-          sentence_completion: 'Saya pakai _____ apabila pergi ke Cameron Highlands',
-          phonemic: 'Ia bermula dengan bunyi "ja"',
-          modeling: 'jaket',
-        },
-      },
-    ],
-  },
   
   // ============================================================================
   // MODULE 2: NAMING/WRITING - Fill in the blank (picture to word)
@@ -622,6 +607,34 @@ const exercises = [
     ],
   },
   
+  // Writing exercises - Body Parts - Medium
+  {
+    id: 'writing_body_medium',
+    title: 'Anggota Badan - Sederhana',
+    description: 'Taip nama bahagian badan yang ditunjukkan',
+    type: 'writing',
+    category: 'bodyParts',
+    exerciseType: 'writing',
+    options: [],
+    difficulty: 2,
+    questions: [
+      {
+        id: 'w_body_med_1',
+        imageUrl: 'body_parts_hidung.png',
+        correctAnswer: 'hidung',
+        cueHierarchy: {
+          functional: 'Bahagian badan ini untuk menghidu dan bernafas',
+          rhyming: 'Ia berima dengan "ridung"',
+          written_initial: 'h_ _ _ _ _',
+          spelling: 'h-i-d-u-n-g',
+          sentence_completion: 'Saya bernafas dengan _____',
+          phonemic: 'Ia bermula dengan bunyi "hi"',
+          modeling: 'hidung',
+        },
+      },
+    ],
+  },
+  
   // Writing exercises - Body Parts - Hard
   {
     id: 'writing_body_hard',
@@ -734,6 +747,34 @@ const exercises = [
     ],
   },
   
+  // Writing exercises - Food - Medium
+  {
+    id: 'writing_food_medium',
+    title: 'Makanan - Sederhana',
+    description: 'Taip nama makanan yang ditunjukkan',
+    type: 'writing',
+    category: 'food',
+    exerciseType: 'writing',
+    options: [],
+    difficulty: 2,
+    questions: [
+      {
+        id: 'w_food_med_1',
+        imageUrl: 'food_telur.png',
+        correctAnswer: 'telur',
+        cueHierarchy: {
+          functional: 'Makanan ini daripada ayam',
+          rhyming: 'Ia berima dengan "celur"',
+          written_initial: 't_ _ _ _',
+          spelling: 't-e-l-u-r',
+          sentence_completion: 'Saya makan _____ goreng',
+          phonemic: 'Ia bermula dengan bunyi "te"',
+          modeling: 'telur',
+        },
+      },
+    ],
+  },
+  
   // Writing exercises - Food - Hard
   {
     id: 'writing_food_hard',
@@ -775,114 +816,182 @@ const exercises = [
       },
     ],
   },
-  
-  // Writing exercises - Clothing - Easy
+
+  // ============================================================================
+  // MODULE 3: VERBS - Action words
+  // ============================================================================
+
+  // Comprehension - Verbs - Easy
   {
-    id: 'writing_clothing_easy',
-    title: 'Pakaian - Mudah',
-    description: 'Taip nama pakaian yang ditunjukkan',
-    type: 'writing',
-    category: 'clothing',
-    exerciseType: 'writing',
+    id: 'comprehension_verbs_easy',
+    title: 'Kata Kerja - Mudah',
+    description: 'Pilih gambar yang betul mengikut perkataan',
+    type: 'comprehension',
+    category: 'verbs',
+    exerciseType: 'comprehension',
     options: [],
     difficulty: 1,
     questions: [
       {
-        id: 'w_clothing_easy_1',
-        imageUrl: 'clothing_shirt.png',
-        correctAnswer: 'baju',
+        id: 'c_verbs_easy_1',
+        correctAnswer: 'makan',
+        options: ['makan', 'tangan', 'baju', 'rumah'],
+        imageOptions: [],
+        audioUrl: 'makan',
         cueHierarchy: {
-          functional: 'Pakaian ini dipakai di bahagian badan atas',
-          rhyming: 'Ia berima dengan "laju"',
-          written_initial: 'b_ _ _',
-          spelling: 'b-a-j-u',
-          sentence_completion: 'Saya pakai _____ baru hari ini',
-          phonemic: 'Ia bermula dengan bunyi "ba"',
-          modeling: 'baju',
+          functional: 'Ini adalah sesuatu yang kita buat dengan makanan',
+          rhyming: 'Ia berima dengan "lawan"',
+          written_initial: 'm_ _ _ _',
+          spelling: 'm-a-k-a-n',
+          sentence_completion: 'Saya _____ nasi setiap hari',
+          phonemic: 'Ia bermula dengan bunyi "ma"',
+          modeling: 'makan',
         },
       },
       {
-        id: 'w_clothing_easy_2',
-        imageUrl: 'clothing_pants.png',
-        correctAnswer: 'seluar',
+        id: 'c_verbs_easy_2',
+        correctAnswer: 'tidur',
+        options: ['tidur', 'mata', 'bantal', 'nasi'],
+        imageOptions: [],
+        audioUrl: 'tidur',
         cueHierarchy: {
-          functional: 'Pakaian ini dipakai di kaki',
-          rhyming: 'Ia berima dengan "keluar"',
-          written_initial: 's_ _ _ _ _',
-          spelling: 's-e-l-u-a-r',
-          sentence_completion: 'Saya pakai _____ jeans ke sekolah',
-          phonemic: 'Ia bermula dengan bunyi "se"',
-          modeling: 'seluar',
+          functional: 'Kita buat ini di malam hari',
+          rhyming: 'Ia berima dengan "hidur"',
+          written_initial: 't_ _ _ _',
+          spelling: 't-i-d-u-r',
+          sentence_completion: 'Saya _____ pada pukul 10 malam',
+          phonemic: 'Ia bermula dengan bunyi "ti"',
+          modeling: 'tidur',
         },
       },
       {
-        id: 'w_clothing_easy_3',
-        imageUrl: 'clothing_shoe.png',
-        correctAnswer: 'kasut',
+        id: 'c_verbs_easy_3',
+        correctAnswer: 'lari',
+        options: ['lari', 'tangan', 'baju', 'nasi'],
+        imageOptions: [],
+        audioUrl: 'lari',
         cueHierarchy: {
-          functional: 'Pakaian ini dipakai di kaki untuk melindungi',
-          rhyming: 'Ia berima dengan "kasut"',
-          written_initial: 'k_ _ _ _',
-          spelling: 'k-a-s-u-t',
-          sentence_completion: 'Saya ikat tali _____ sebelum berlari',
-          phonemic: 'Ia bermula dengan bunyi "ka"',
-          modeling: 'kasut',
-        },
-      },
-      {
-        id: 'w_clothing_easy_4',
-        imageUrl: 'clothing_hat.png',
-        correctAnswer: 'topi',
-        cueHierarchy: {
-          functional: 'Pakaian ini dipakai di kepala',
-          rhyming: 'Ia berima dengan "kopi"',
-          written_initial: 't_ _ _',
-          spelling: 't-o-p-i',
-          sentence_completion: 'Saya pakai _____ bila panas',
-          phonemic: 'Ia bermula dengan bunyi "to"',
-          modeling: 'topi',
+          functional: 'Kita buat ini untuk bersenam',
+          rhyming: 'Ia berima dengan "mari"',
+          written_initial: 'l_ _ _',
+          spelling: 'l-a-r-i',
+          sentence_completion: 'Saya _____ di padang setiap pagi',
+          phonemic: 'Ia bermula dengan bunyi "la"',
+          modeling: 'lari',
         },
       },
     ],
   },
   
-  // Writing exercises - Clothing - Hard
+  // Comprehension - Verbs - Medium
   {
-    id: 'writing_clothing_hard',
-    title: 'Pakaian - Sukar',
-    description: 'Taip nama pakaian yang ditunjukkan',
-    type: 'writing',
-    category: 'clothing',
-    exerciseType: 'writing',
+    id: 'comprehension_verbs_medium',
+    title: 'Kata Kerja - Sederhana',
+    description: 'Pilih gambar yang betul mengikut perkataan',
+    type: 'comprehension',
+    category: 'verbs',
+    exerciseType: 'comprehension',
     options: [],
-    difficulty: 3,
+    difficulty: 2,
     questions: [
       {
-        id: 'w_clothing_hard_1',
-        imageUrl: 'clothing_jacket.png',
-        correctAnswer: 'jaket',
+        id: 'c_verbs_med_1',
+        correctAnswer: 'menulis',
+        options: ['menulis', 'membaca', 'makan', 'duduk'],
+        imageOptions: [],
+        audioUrl: 'menulis',
         cueHierarchy: {
-          functional: 'Pakaian ini dipakai apabila sejuk',
-          rhyming: 'Ia berima dengan "raket"',
-          written_initial: 'j_ _ _ _',
-          spelling: 'j-a-k-e-t',
-          sentence_completion: 'Saya pakai _____ ke Cameron Highlands',
-          phonemic: 'Ia bermula dengan bunyi "ja"',
-          modeling: 'jaket',
+          functional: 'Perbuatan menggunakan pen di atas kertas',
+          rhyming: 'Ia berima dengan "memulis"',
+          written_initial: 'm_ _ _ _ _ _',
+          spelling: 'm-e-n-u-l-i-s',
+          sentence_completion: 'Saya _____ nota dalam buku',
+          phonemic: 'Ia bermula dengan bunyi "me"',
+          modeling: 'menulis',
+        },
+      },
+    ],
+  },
+
+  // Writing exercises - Verbs - Easy
+  {
+    id: 'writing_verbs_easy',
+    title: 'Kata Kerja - Mudah',
+    description: 'Taip nama perbuatan yang ditunjukkan dalam gambar',
+    type: 'writing',
+    category: 'verbs',
+    exerciseType: 'writing',
+    options: [],
+    difficulty: 1,
+    questions: [
+      {
+        id: 'w_verbs_easy_1',
+        imageUrl: 'verbs_eating.png',
+        correctAnswer: 'makan',
+        cueHierarchy: {
+          functional: 'Kita buat ini dengan makanan',
+          rhyming: 'Ia berima dengan "lawan"',
+          written_initial: 'm_ _ _ _',
+          spelling: 'm-a-k-a-n',
+          sentence_completion: 'Saya _____ nasi setiap hari',
+          phonemic: 'Ia bermula dengan bunyi "ma"',
+          modeling: 'makan',
         },
       },
       {
-        id: 'w_clothing_hard_2',
-        imageUrl: 'clothing_glove.png',
-        correctAnswer: 'sarung tangan',
+        id: 'w_verbs_easy_2',
+        imageUrl: 'verbs_sleeping.png',
+        correctAnswer: 'tidur',
         cueHierarchy: {
-          functional: 'Pakaian ini dipakai di tangan untuk melindungi',
-          rhyming: 'Ia berima dengan "sarung tangan"',
-          written_initial: 's_ _ _ _ _  t_ _ _ _ _',
-          spelling: 's-a-r-u-n-g  t-a-n-g-a-n',
-          sentence_completion: 'Doktor pakai _____ semasa beroperasi',
-          phonemic: 'Ia bermula dengan bunyi "sa"',
-          modeling: 'sarung tangan',
+          functional: 'Kita buat ini di malam hari',
+          rhyming: 'Ia berima dengan "hidur"',
+          written_initial: 't_ _ _ _',
+          spelling: 't-i-d-u-r',
+          sentence_completion: 'Saya _____ pada pukul 10 malam',
+          phonemic: 'Ia bermula dengan bunyi "ti"',
+          modeling: 'tidur',
+        },
+      },
+      {
+        id: 'w_verbs_easy_3',
+        imageUrl: 'verbs_running.png',
+        correctAnswer: 'lari',
+        cueHierarchy: {
+          functional: 'Kita buat ini untuk bersenam',
+          rhyming: 'Ia berima dengan "mari"',
+          written_initial: 'l_ _ _',
+          spelling: 'l-a-r-i',
+          sentence_completion: 'Saya _____ di padang setiap pagi',
+          phonemic: 'Ia bermula dengan bunyi "la"',
+          modeling: 'lari',
+        },
+      },
+    ],
+  },
+  
+  // Writing exercises - Verbs - Medium
+  {
+    id: 'writing_verbs_medium',
+    title: 'Kata Kerja - Sederhana',
+    description: 'Taip kata kerja yang ditunjukkan',
+    type: 'writing',
+    category: 'verbs',
+    exerciseType: 'writing',
+    options: [],
+    difficulty: 2,
+    questions: [
+      {
+        id: 'w_verbs_med_1',
+        imageUrl: 'verbs_menulis.png',
+        correctAnswer: 'menulis',
+        cueHierarchy: {
+          functional: 'Kita buat ini dengan pen di kertas',
+          rhyming: 'Ia berima dengan "kalis"',
+          written_initial: 'm_ _ _ _ _ _',
+          spelling: 'm-e-n-u-l-i-s',
+          sentence_completion: 'Saya _____ surat',
+          phonemic: 'Ia bermula dengan bunyi "me"',
+          modeling: 'menulis',
         },
       },
     ],
@@ -903,6 +1012,8 @@ const users = [
     email: 'john.patient@speaksteps.com',
     name: 'John Smith',
     role: 'patient',
+    therapistId: 'therapist_001',
+    assignedModules: ['writing', 'comprehension'],
     createdAt: new Date().toISOString(),
     diagnosis: "Broca's Aphasia",
     patientPhone: '+1 (555) 123-4567',
@@ -914,6 +1025,8 @@ const users = [
     email: 'emma.patient@email.com',
     name: 'Emma Johnson',
     role: 'patient',
+    therapistId: 'therapist_001',
+    assignedModules: ['writing', 'comprehension'],
     createdAt: new Date().toISOString(),
     diagnosis: "Wernicke's Aphasia",
     patientPhone: '+1 (555) 234-5678',
@@ -921,10 +1034,51 @@ const users = [
     caregiverPhone: '+1 (555) 234-5679',
   },
   {
+    id: 'patient_test_jan_12',
+    email: 'test5.12jan.patient@speaksteps.com',
+    name: 'Test Patient',
+    role: 'patient',
+    therapistId: 'therapist_001',
+    assignedModules: ['writing', 'comprehension'],
+    createdAt: new Date().toISOString(),
+    diagnosis: 'Test Account',
+    patientPhone: '+1 (555) 999-9999',
+    caregiverName: 'Test Caregiver',
+    caregiverPhone: '+1 (555) 999-9998',
+  },
+  {
+    id: 'patient_test_jan_15',
+    email: 'test1.15jan.patient@speaksteps.com',
+    name: 'Test Patient Jan 15',
+    role: 'patient',
+    therapistId: 'therapist_001',
+    assignedModules: ['writing', 'comprehension'],
+    createdAt: new Date().toISOString(),
+    diagnosis: 'Test Account',
+    patientPhone: '+1 (555) 999-9999',
+    caregiverName: 'Test Caregiver',
+    caregiverPhone: '+1 (555) 999-9998',
+  },
+  {
+    id: 'patient_test_jan_15_2',
+    email: 'test2.15jan.patient@speaksteps.com',
+    name: 'Test Patient 2 Jan 15',
+    role: 'patient',
+    therapistId: 'therapist_001',
+    assignedModules: ['writing', 'comprehension'],
+    createdAt: new Date().toISOString(),
+    diagnosis: 'Test Account',
+    patientPhone: '+1 (555) 999-9999',
+    caregiverName: 'Test Caregiver',
+    caregiverPhone: '+1 (555) 999-9998',
+  },
+  {
     id: 'patient_003',
     email: 'michael.patient@email.com',
     name: 'Michael Brown',
     role: 'patient',
+    therapistId: 'therapist_001',
+    assignedModules: ['writing', 'comprehension'],
     createdAt: new Date().toISOString(),
     diagnosis: 'Anomic Aphasia',
     patientPhone: '+1 (555) 345-6789',
@@ -970,6 +1124,9 @@ async function seedFirestore() {
   console.log('     Email: michael.patient@email.com');
   console.log('     Password: (your choice, e.g., Patient123!)');
   console.log('     UID: patient_003\n');
+  console.log('     Email: test5.12jan.patient@speaksteps.com');
+  console.log('     Password: (your choice)');
+  console.log('     UID: patient_test_jan_12\n');
   
   process.exit(0);
 }

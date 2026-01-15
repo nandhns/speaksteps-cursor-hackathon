@@ -95,6 +95,7 @@ class AppStrings {
   String get food => isMalay ? 'Makanan' : 'Food';
   String get bodyParts => isMalay ? 'Anggota Badan' : 'Body Parts';
   String get clothing => isMalay ? 'Pakaian' : 'Clothing';
+  String get verbs => isMalay ? 'Kata Kerja' : 'Verbs';
   String get household => isMalay ? 'Barangan Rumah' : 'Household';
   String get nature => isMalay ? 'Alam Semulajadi' : 'Nature';
   String get transportation => isMalay ? 'Pengangkutan' : 'Transportation';
@@ -203,6 +204,19 @@ class AppStrings {
   String get wellDone => isMalay ? 'Syabas!' : 'Well done!';
   String get fantastic => isMalay ? 'Hebat!' : 'Fantastic!';
   String get keepGoing => isMalay ? 'Teruskan!' : 'Keep going!';
+  
+  // ==================== COMPLETION DIALOG ====================
+  String get excellent => isMalay ? 'Cemerlang! 🎉' : 'Excellent! 🎉';
+  String get goodJob => isMalay ? 'Bagus! 💪' : 'Good Job! 💪';
+  String get youGotCorrect => isMalay ? 'Anda betul' : 'You got';
+  String get outOf => isMalay ? 'daripada' : 'out of';
+  String get questionsCorrectSuffix => isMalay ? 'soalan!' : 'questions correct!';
+  String get youGotItRight => isMalay ? 'Anda betul!' : 'You got it right!';
+  String get theCorrectAnswerWas => isMalay ? 'Jawapan yang betul ialah' : 'The correct answer was';
+  String get keepPracticingExclaim => isMalay ? 'Teruskan berlatih! 💪' : 'Keep Practicing! 💪';
+  String get greatJobExclaim => isMalay ? 'Kerja Hebat! 🎉' : 'Great Job! 🎉';
+  String get exerciseCompletedScore => isMalay ? 'Latihan selesai! Markah' : 'Exercise completed! Score';
+  String get pleaseSelectImage => isMalay ? 'Sila pilih gambar' : 'Please select an image';
 }
 
 /// Extension to easily get strings from BuildContext

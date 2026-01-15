@@ -338,10 +338,10 @@ class CategoryBreakdownWidget extends StatelessWidget {
         return '🐾';
       case ExerciseCategory.bodyParts:
         return '👤';
-      case ExerciseCategory.clothing:
-        return '👕';
       case ExerciseCategory.food:
         return '🍎';
+      case ExerciseCategory.verbs:
+        return '🎬';
     }
   }
 
@@ -351,10 +351,10 @@ class CategoryBreakdownWidget extends StatelessWidget {
         return 'Animals';
       case ExerciseCategory.bodyParts:
         return 'Body Parts';
-      case ExerciseCategory.clothing:
-        return 'Clothing';
       case ExerciseCategory.food:
         return 'Food';
+      case ExerciseCategory.verbs:
+        return 'Verbs';
     }
   }
 
@@ -364,10 +364,10 @@ class CategoryBreakdownWidget extends StatelessWidget {
         return Colors.orange;
       case ExerciseCategory.bodyParts:
         return Colors.pink;
-      case ExerciseCategory.clothing:
-        return Colors.blue;
       case ExerciseCategory.food:
         return Colors.green;
+      case ExerciseCategory.verbs:
+        return Colors.purple;
     }
   }
 }

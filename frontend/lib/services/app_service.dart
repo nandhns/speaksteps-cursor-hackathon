@@ -31,6 +31,7 @@ abstract class AppService {
     required String diagnosis,
     required String patientPhone,
     required String caregiverName,
+    required String caregiverEmail,
     required String caregiverPhone,
     List<TherapyModule>? assignedModules,
     bool sendOnboardingEmail = true,
@@ -50,7 +51,7 @@ abstract class AppService {
 /// Service factory - Switch between Mock and Firebase
 class ServiceFactory {
   // Set to true to use Firebase, false to use Mock (for testing without Firebase)
-  static const bool useFirebase = true; // Firebase is now configured!
+  static const bool useFirebase = true; // Use Firebase with cleaned database
 
   static AppService createService() {
     if (useFirebase) {
@@ -141,6 +142,7 @@ class MockServiceAdapter implements AppService {
     required String diagnosis,
     required String patientPhone,
     required String caregiverName,
+    required String caregiverEmail,
     required String caregiverPhone,
     List<TherapyModule>? assignedModules,
     bool sendOnboardingEmail = true,
@@ -151,6 +153,7 @@ class MockServiceAdapter implements AppService {
         diagnosis: diagnosis,
         patientPhone: patientPhone,
         caregiverName: caregiverName,
+        caregiverEmail: caregiverEmail,
         caregiverPhone: caregiverPhone,
         assignedModules: assignedModules,
         sendOnboardingEmail: sendOnboardingEmail,
@@ -328,6 +331,7 @@ class FirebaseServiceAdapter implements AppService {
     required String diagnosis,
     required String patientPhone,
     required String caregiverName,
+    required String caregiverEmail,
     required String caregiverPhone,
     List<TherapyModule>? assignedModules,
     bool sendOnboardingEmail = true,
@@ -338,6 +342,7 @@ class FirebaseServiceAdapter implements AppService {
         diagnosis: diagnosis,
         patientPhone: patientPhone,
         caregiverName: caregiverName,
+        caregiverEmail: caregiverEmail,
         caregiverPhone: caregiverPhone,
         assignedModules: assignedModules,
         sendOnboardingEmail: sendOnboardingEmail,

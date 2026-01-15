@@ -42,6 +42,7 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
   String? _currentCueType;
   int? _cueWaitSeconds;
   DateTime? _cueDisplayedAt; // Track when cue was displayed
+  DateTime? _lastCueShownAt; // Track when last cue was shown to prevent rapid display
   int _currentQuestionIndex = 0;
   int _correctAnswers = 0;
   List<bool> _questionResults = [];
@@ -59,6 +60,7 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
     super.initState();
     _startTime = DateTime.now();
     _questionStartTime = DateTime.now();
+    _lastCueShownAt = null; // Reset for new question
     
     // Initialize session ID for tracking all questions in this exercise session
     _sessionId = '${widget.patientId}_${widget.exercise.id}_${DateTime.now().millisecondsSinceEpoch}';
@@ -181,6 +183,14 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
     // Calculate response time
     final responseTime = DateTime.now().difference(_questionStartTime!).inSeconds.toDouble();
     
+    // Prevent rapid cue display - ensure at least 10 seconds between cues
+    if (_lastCueShownAt != null) {
+      final timeSinceLastCue = DateTime.now().difference(_lastCueShownAt!).inSeconds;
+      if (timeSinceLastCue < 10) {
+        return; // Don't show next cue yet
+      }
+    }
+    
     // Get current time of day
     final hour = DateTime.now().hour;
     String timeOfDay;
@@ -201,8 +211,9 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
       'haiwan': 'animals',
       'animal': 'animals',
       'bodyParts': 'body_parts',
-      'pakaian': 'clothing',
       'makanan': 'food',
+      'verbs': 'verbs',
+      'kata_kerja': 'verbs',
     };
     categoryName = categoryMap[categoryName] ?? categoryName;
 
@@ -252,85 +263,104 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
     try {
       final prediction = _cuePredictor!.predict(input);
       
-      // Time-based cue progression (ML suggestion is considered but not blocking)
-      // Level 1: Functional (5s)
-      // Level 2: Rhyming (15s)
-      // Level 3: Written Initial (25s)
-      // Level 4: Spelling (35s)
-      // Level 5: Sentence Completion (45s)
-      // Level 6: Phonemic/First Sound (55s)
+      print('DEBUG: ML Prediction - probability: ${prediction.probability.toStringAsFixed(3)}, needCue: ${prediction.needCue}, responseTime: ${responseTime}s, currentLevel: $_cueLevel');
       
-      if (_cueLevel == 0 && responseTime >= 5) {
-        // Level 1: Functional cue at 5s
+      // ML-based cue progression: Show next cue when ML predicts patient needs help
+      // Enforce minimum time delays before showing cues
+      if (!prediction.needCue) {
+        return; // ML says patient doesn't need help yet
+      }
+      
+      // Enforce minimum wait time before first cue (30 seconds)
+      if (_cueLevel == 0 && responseTime < 30) {
+        return; // Don't show first cue until at least 30 seconds
+      }
+      
+      // Enforce minimum gap between cues (20 seconds)
+      if (_lastCueShownAt != null) {
+        final timeSinceLastCue = DateTime.now().difference(_lastCueShownAt!).inSeconds;
+        if (timeSinceLastCue < 20) {
+          return; // Wait at least 20 seconds between cues
+        }
+      }
+      
+      if (_cueLevel == 0) {
+        // Level 1: Functional cue (ML predicts need)
         setState(() {
           _cueLevel = 1;
           _currentCue = currentQuestion.cueHierarchy?['functional'] ?? 
                         _generateFallbackCue('functional', currentQuestion.correctAnswer);
           _hintCount++;
+          _lastCueShownAt = DateTime.now(); // Track when cue was shown
         });
         if (_currentCue != null) {
           _showCue('Functional Cue', _currentCue!);
-          print('DEBUG: Level 1 - Functional cue shown (time: ${responseTime}s)');
+          print('DEBUG: Level 1 - Functional cue shown (time: ${responseTime}s, ML prob: ${prediction.probability.toStringAsFixed(3)})');
         }
-      } else if (_cueLevel == 1 && responseTime >= 15) {
-        // Level 2: Rhyming cue at 15s
+      } else if (_cueLevel == 1) {
+        // Level 2: Rhyming cue (ML predicts need)
         setState(() {
           _cueLevel = 2;
           _currentCue = currentQuestion.cueHierarchy?['rhyming'] ?? 
                         _generateFallbackCue('rhyming', currentQuestion.correctAnswer);
           _hintCount++;
+          _lastCueShownAt = DateTime.now();
         });
         if (_currentCue != null) {
           _showCue('Rhyming Cue', _currentCue!);
-          print('DEBUG: Level 2 - Rhyming cue shown (time: ${responseTime}s)');
+          print('DEBUG: Level 2 - Rhyming cue shown (time: ${responseTime}s, ML prob: ${prediction.probability.toStringAsFixed(3)})');
         }
-      } else if (_cueLevel == 2 && responseTime >= 25) {
-        // Level 3: Written initial cue at 25s
+      } else if (_cueLevel == 2) {
+        // Level 3: Written initial cue (ML predicts need)
         setState(() {
           _cueLevel = 3;
           _currentCue = currentQuestion.cueHierarchy?['written_initial'] ?? 
                         _generateFallbackCue('written_initial', currentQuestion.correctAnswer);
           _hintCount++;
+          _lastCueShownAt = DateTime.now();
         });
         if (_currentCue != null) {
           _showCue('Written Cue', _currentCue!);
-          print('DEBUG: Level 3 - Written initial cue shown (time: ${responseTime}s)');
+          print('DEBUG: Level 3 - Written initial cue shown (time: ${responseTime}s, ML prob: ${prediction.probability.toStringAsFixed(3)})');
         }
-      } else if (_cueLevel == 3 && responseTime >= 35) {
-        // Level 4: Spelling cue at 35s
+      } else if (_cueLevel == 3) {
+        // Level 4: Spelling cue (ML predicts need)
         setState(() {
           _cueLevel = 4;
           _currentCue = currentQuestion.cueHierarchy?['spelling'] ?? 
                         _generateFallbackCue('spelling', currentQuestion.correctAnswer);
           _hintCount++;
+          _lastCueShownAt = DateTime.now();
         });
         if (_currentCue != null) {
           _showCue('Spelling Cue', _currentCue!);
-          print('DEBUG: Level 4 - Spelling cue shown (time: ${responseTime}s)');
+          print('DEBUG: Level 4 - Spelling cue shown (time: ${responseTime}s, ML prob: ${prediction.probability.toStringAsFixed(3)})');
         }
-      } else if (_cueLevel == 4 && responseTime >= 45) {
-        // Level 5: Sentence completion cue at 45s
+      } else if (_cueLevel == 4) {
+        // Level 5: Sentence completion cue (ML predicts need)
         setState(() {
           _cueLevel = 5;
           _currentCue = currentQuestion.cueHierarchy?['sentence_completion'] ?? 
                         _generateFallbackCue('sentence_completion', currentQuestion.correctAnswer);
           _hintCount++;
+          _lastCueShownAt = DateTime.now();
         });
         if (_currentCue != null) {
           _showCue('Sentence Completion', _currentCue!);
-          print('DEBUG: Level 5 - Sentence completion cue shown (time: ${responseTime}s)');
+          print('DEBUG: Level 5 - Sentence completion cue shown (time: ${responseTime}s, ML prob: ${prediction.probability.toStringAsFixed(3)})');
         }
-      } else if (_cueLevel == 5 && responseTime >= 55) {
-        // Level 6: Phonemic/First sound cue at 55s
+      } else if (_cueLevel == 5) {
+        // Level 6: Phonemic/First sound cue (ML predicts need)
         setState(() {
           _cueLevel = 6;
           _currentCue = currentQuestion.cueHierarchy?['phonemic'] ?? 
                         _generateFallbackCue('phonemic', currentQuestion.correctAnswer);
           _hintCount++;
+          _lastCueShownAt = DateTime.now();
         });
         if (_currentCue != null) {
           _showCue('First Sound', _currentCue!);
-          print('DEBUG: Level 6 - Phonemic cue shown (time: ${responseTime}s)');
+          print('DEBUG: Level 6 - Phonemic cue shown (time: ${responseTime}s, ML prob: ${prediction.probability.toStringAsFixed(3)})');
         }
       }
     } catch (e) {
@@ -352,7 +382,7 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
       if (!_isSubmitted && mounted && _currentQuestionIndex < widget.exercise.questions.length) {
         setState(() {
           _cueLevel = 1;
-          _currentCue = currentQuestion.cueHierarchy?['function'];
+          _currentCue = currentQuestion.cueHierarchy?['functional'];
           _currentCueType = 'functional';
           _cueWaitSeconds = 15; // First cue after 15 seconds
           _hintCount++;
@@ -379,7 +409,7 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
               if (!_isSubmitted && mounted && _currentQuestionIndex < widget.exercise.questions.length) {
                 setState(() {
                   _cueLevel = 3;
-                  _currentCue = currentQuestion.cueHierarchy?['written'];
+                  _currentCue = currentQuestion.cueHierarchy?['written_initial'];
                   _currentCueType = 'written_initial';
                   _hintCount++;
                 });
@@ -588,6 +618,7 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
           _cueWaitSeconds = null;
           _hintCount = 0;
           _questionStartTime = DateTime.now();
+          _lastCueShownAt = null; // Reset for new question
         });
         _startMLBasedCueSystem();
       } else {
@@ -601,6 +632,7 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
           patientId: widget.patientId,
           exerciseId: widget.exercise.id,
           exerciseTitle: widget.exercise.title,
+          exerciseModule: _getModuleName(widget.exercise.type),
           score: _correctAnswers,
           maxScore: totalQuestions,
           answer: '${_correctAnswers}/$totalQuestions',
@@ -622,20 +654,21 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
         // Show final result
         Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted) {
+            final strings = AppStrings(Localizations.localeOf(context).languageCode);
             showDialog(
               context: context,
               builder: (context) => AlertDialog(
-                title: Text(_correctAnswers == totalQuestions ? 'Excellent! 🎉' : 'Good Job! 💪'),
+                title: Text(_correctAnswers == totalQuestions ? strings.excellent : strings.goodJob),
                 content: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'You got $_correctAnswers out of $totalQuestions questions correct!',
+                        '${strings.youGotCorrect} $_correctAnswers ${strings.outOf} $totalQuestions ${strings.questionsCorrectSuffix}',
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Score: $_correctAnswers/$totalQuestions',
+                        '${strings.score}: $_correctAnswers/$totalQuestions',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: _correctAnswers == totalQuestions ? Colors.green : Colors.orange,
@@ -650,7 +683,7 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
                       Navigator.of(context).pop();
                       Navigator.of(context).pop();
                     },
-                    child: const Text('Done'),
+                    child: Text(strings.done),
                   ),
                 ],
               ),
@@ -702,10 +735,10 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
                 child: Chip(
                   label: Text(
                     _cueLevel == 1
-                        ? 'Function Cue'
+                        ? 'Petunjuk Fungsi'
                         : _cueLevel == 2
-                            ? 'Rhyming Cue'
-                            : 'Written Cue',
+                            ? 'Petunjuk Rimba'
+                            : 'Petunjuk Bertulis',
                     style: const TextStyle(fontSize: 12),
                   ),
                   backgroundColor: Colors.blue.shade100,
@@ -816,10 +849,10 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
                           children: [
                             Text(
                               _cueLevel == 1
-                                  ? 'Function Cue'
+                                  ? 'Petunjuk Fungsi'
                                   : _cueLevel == 2
-                                      ? 'Rhyming Cue'
-                                      : 'Written Cue',
+                                      ? 'Petunjuk Rimba'
+                                      : 'Petunjuk Bertulis',
                               style: Theme.of(context)
                                   .textTheme
                                   .titleSmall
@@ -984,5 +1017,16 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
         _questionResponses.map((r) => r.toMap()).toList(),
       );
     }
+  }
+
+
+  String _getModuleName(String type) {
+    final moduleMap = {
+      'penulisan': 'Menulis',
+      'kefahaman': 'Kefahaman',
+      'writing': 'Menulis',
+      'comprehension': 'Kefahaman',
+    };
+    return moduleMap[type.toLowerCase()] ?? type;
   }
 }

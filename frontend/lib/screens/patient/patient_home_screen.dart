@@ -61,13 +61,34 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
 
   Future<void> _loadExercises() async {
     setState(() => _isLoading = true);
-    final exercises = await _service.getExercises();
-    
-    // Load latest scores for each exercise
     final authProvider = context.read<app_auth.AuthProvider>();
     final patientId = authProvider.currentUser?.id;
+    final user = authProvider.currentUser;
+    print('DEBUG: currentUser assignedModules = ${user?.assignedModules}');
+    
     print('DEBUG: Loading exercises for patientId: $patientId');
     
+    // Get all exercises first
+    final allExercises = await _service.getExercises();
+    
+    // Filter by assigned modules if available
+    List<Exercise> filteredExercises = allExercises;
+    if (user?.assignedModules != null && user!.assignedModules!.isNotEmpty) {
+      print('DEBUG: Patient has assigned modules: ${user.assignedModules}');
+      final assignedModuleNames = user.assignedModules!
+          .map((m) => m.toString().split('.').last)
+          .toSet();
+      
+      filteredExercises = allExercises.where((exercise) {
+        final typeEnum = exercise.exerciseType.name; // Use enum name (writing/comprehension)
+        return assignedModuleNames.contains(typeEnum);
+      }).toList();
+      print('DEBUG: Filtered to ${filteredExercises.length} exercises from assigned modules');
+    } else {
+      print('DEBUG: No assigned modules found, showing all exercises');
+    }
+    
+    // Load latest scores for each exercise
     if (patientId != null) {
       final allScores = await _service.getPatientScores(patientId);
       print('DEBUG: Loaded ${allScores.length} scores for patient');
@@ -82,13 +103,13 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
         }
       }
       setState(() {
-        _exercises = exercises;
+        _exercises = filteredExercises;
         _exerciseScores = scoreMap;
         _isLoading = false;
       });
     } else {
       setState(() {
-        _exercises = exercises;
+        _exercises = filteredExercises;
         _isLoading = false;
       });
     }
@@ -102,9 +123,10 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
     // Reload exercises to update scores
     await _loadExercises();
     if (mounted) {
+      final strings = AppStrings(Localizations.localeOf(context).languageCode);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Exercise completed! Score: ${score.score}/${score.maxScore}'),
+          content: Text('${strings.exerciseCompletedScore}: ${score.score}/${score.maxScore}'),
           backgroundColor: AppTheme.success,
         ),
       );
@@ -151,8 +173,8 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
     
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spacingLg,
-        vertical: AppTheme.spacingMd,
+        horizontal: AppTheme.spacingMd,
+        vertical: AppTheme.spacingSm,
       ),
       decoration: BoxDecoration(
         color: AppTheme.surface,
@@ -162,68 +184,97 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
       ),
       child: SafeArea(
         bottom: false,
-        child: Row(
-          children: [
-            if (showBackButton) ...[
-              IconButton(
-                onPressed: _goBack,
-                icon: const Icon(Icons.arrow_back),
-                style: IconButton.styleFrom(
-                  backgroundColor: AppTheme.surfaceVariant,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (showBackButton) ...[  
+                SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: IconButton(
+                    onPressed: _goBack,
+                    icon: const Icon(Icons.arrow_back, size: 20),
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppTheme.surfaceVariant,
+                      padding: EdgeInsets.zero,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppTheme.spacingSm),
+              ],
+              
+              // Logo
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryPurpleLight,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                ),
+                child: const Icon(
+                  Icons.record_voice_over,
+                  color: AppTheme.primaryPurple,
+                  size: 16,
                 ),
               ),
-              const SizedBox(width: AppTheme.spacingMd),
+              const SizedBox(width: AppTheme.spacingSm),
+              
+              // Title section
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: (MediaQuery.of(context).size.width - 380).clamp(0.0, double.infinity),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'SpeakSteps',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      _getSubtitle(context),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(width: AppTheme.spacingSm),
+              
+              // Language selector - compact on mobile
+              SizedBox(
+                height: 36,
+                child: const LanguageSelector(showLabel: false),
+              ),
+              
+              const SizedBox(width: 4),
+              
+              // Refresh button
+              SizedBox(
+                width: 36,
+                height: 36,
+                child: IconButton(
+                  icon: const Icon(Icons.refresh_outlined, size: 18),
+                  onPressed: _loadExercises,
+                  tooltip: 'Refresh exercises',
+                  style: IconButton.styleFrom(
+                    backgroundColor: AppTheme.surfaceVariant,
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+              
+              const SizedBox(width: 4),
+              
+              // User menu
+              _buildUserMenu(context, user, authProvider),
             ],
-            
-            // Logo
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryPurpleLight,
-                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-              ),
-              child: const Icon(
-                Icons.record_voice_over,
-                color: AppTheme.primaryPurple,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: AppTheme.spacingMd),
-            
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'SpeakSteps',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  Text(
-                    _getSubtitle(context),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-            
-            // Language selector
-            const LanguageSelector(showLabel: false),
-            const SizedBox(width: AppTheme.spacingSm),
-            
-            // Refresh button
-            IconButton(
-              icon: const Icon(Icons.refresh_outlined),
-              onPressed: _loadExercises,
-              tooltip: 'Refresh exercises',
-              style: IconButton.styleFrom(
-                backgroundColor: AppTheme.surfaceVariant,
-              ),
-            ),
-            const SizedBox(width: AppTheme.spacingSm),
-            
-            // User menu
-            _buildUserMenu(context, user, authProvider),
-          ],
+          ),
         ),
       ),
     );
@@ -499,16 +550,16 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               onTap: () => setState(() => _selectedCategory = ExerciseCategory.bodyParts),
             ),
             _CategoryCard(
-              emoji: '👕',
-              title: strings.clothing,
-              color: const Color(0xFF3B82F6),
-              onTap: () => setState(() => _selectedCategory = ExerciseCategory.clothing),
-            ),
-            _CategoryCard(
               emoji: '🍎',
               title: strings.food,
               color: const Color(0xFF22C55E),
               onTap: () => setState(() => _selectedCategory = ExerciseCategory.food),
+            ),
+            _CategoryCard(
+              emoji: '🎬',
+              title: strings.verbs,
+              color: const Color(0xFFA855F7),
+              onTap: () => setState(() => _selectedCategory = ExerciseCategory.verbs),
             ),
           ],
         ),

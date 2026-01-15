@@ -9,6 +9,7 @@ class AddPatientDialog extends StatefulWidget {
     required String diagnosis,
     required String patientPhone,
     required String caregiverName,
+    required String caregiverEmail,
     required String caregiverPhone,
     required List<TherapyModule> assignedModules,
     required bool sendOnboardingEmail,
@@ -31,6 +32,7 @@ class _AddPatientDialogState extends State<AddPatientDialog> {
   final _diagnosisController = TextEditingController();
   final _patientPhoneController = TextEditingController();
   final _caregiverNameController = TextEditingController();
+  final _caregiverEmailController = TextEditingController();
   final _caregiverPhoneController = TextEditingController();
   bool _isSubmitting = false;
 
@@ -60,6 +62,7 @@ class _AddPatientDialogState extends State<AddPatientDialog> {
     _diagnosisController.dispose();
     _patientPhoneController.dispose();
     _caregiverNameController.dispose();
+    _caregiverEmailController.dispose();
     _caregiverPhoneController.dispose();
     super.dispose();
   }
@@ -93,6 +96,7 @@ class _AddPatientDialogState extends State<AddPatientDialog> {
         diagnosis: _selectedAphasiaType ?? _diagnosisController.text.trim(),
         patientPhone: _patientPhoneController.text.trim(),
         caregiverName: _caregiverNameController.text.trim(),
+        caregiverEmail: _caregiverEmailController.text.trim(),
         caregiverPhone: _caregiverPhoneController.text.trim(),
         assignedModules: _getSelectedModules(),
         sendOnboardingEmail: _sendOnboardingEmail,
@@ -207,6 +211,19 @@ class _AddPatientDialogState extends State<AddPatientDialog> {
                         hint: 'Enter caregiver\'s full name',
                         icon: Icons.people_outline,
                         validator: (v) => v?.isEmpty == true ? 'Required' : null,
+                      ),
+                      const SizedBox(height: AppTheme.spacingLg),
+                      _buildTextField(
+                        controller: _caregiverEmailController,
+                        label: 'Caregiver email',
+                        hint: 'caregiver@example.com',
+                        icon: Icons.email_outlined,
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (v) {
+                          if (v?.isEmpty == true) return 'Required';
+                          if (!v!.contains('@')) return 'Invalid email';
+                          return null;
+                        },
                       ),
                       const SizedBox(height: AppTheme.spacingLg),
                       _buildTextField(

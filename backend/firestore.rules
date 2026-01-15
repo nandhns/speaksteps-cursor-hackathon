@@ -52,7 +52,7 @@ service cloud.firestore {
       // Therapists can read their assigned patients
       allow read: if isAuthenticated() && (
         request.auth.uid == userId ||
-        (isTherapist() && get(/databases/$(database)/documents/users/$(userId)).data.therapistId == request.auth.uid)
+        (isTherapist() && get(/databases/$(database)/documents/users/$(userId)).data.get('therapistId') == request.auth.uid)
       );
       
       // Users can create their own document during signup
@@ -62,7 +62,7 @@ service cloud.firestore {
       // Therapists can update their assigned patients
       allow update: if isAuthenticated() && (
         request.auth.uid == userId ||
-        therapistOwnsPatient(userId)
+        (isTherapist() && get(/databases/$(database)/documents/users/$(userId)).data.get('therapistId') == request.auth.uid)
       );
       
       // Users can delete their own document

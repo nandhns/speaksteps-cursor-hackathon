@@ -32,9 +32,10 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
   void _handleSubmit() {
     if (_selectedAnswer == null) {
+      final strings = AppStrings(Localizations.localeOf(context).languageCode);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select an answer'),
+        SnackBar(
+          content: Text(strings.pleaseSelectAnswer),
           backgroundColor: Colors.orange,
         ),
       );
@@ -54,6 +55,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       patientId: widget.patientId,
       exerciseId: widget.exercise.id,
       exerciseTitle: widget.exercise.title,
+      exerciseModule: _getModuleName(widget.exercise.type),
       score: score,
       maxScore: 100,
       answer: _selectedAnswer,
@@ -71,21 +73,22 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     // Show result
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
+        final strings = AppStrings(Localizations.localeOf(context).languageCode);
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text(isCorrect ? 'Great Job! 🎉' : 'Keep Practicing! 💪'),
+            title: Text(isCorrect ? strings.greatJobExclaim : strings.keepPracticingExclaim),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   isCorrect
-                      ? 'You got it right!'
-                      : 'The correct answer was: ${widget.exercise.correctAnswer}',
+                      ? strings.youGotItRight
+                      : '${strings.theCorrectAnswerWas}: ${widget.exercise.correctAnswer}',
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Score: $score/100',
+                  '${strings.score}: $score/100',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: isCorrect ? Colors.green : Colors.orange,
@@ -99,7 +102,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                   Navigator.of(context).pop(); // Close dialog
                   Navigator.of(context).pop(); // Go back to home
                 },
-                child: const Text('Done'),
+                child: Text(strings.done),
               ),
             ],
           ),
@@ -260,6 +263,16 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
         ),
       ),
     );
+  }
+
+  String _getModuleName(String type) {
+    final moduleMap = {
+      'penulisan': 'Menulis',
+      'kefahaman': 'Kefahaman',
+      'writing': 'Menulis',
+      'comprehension': 'Kefahaman',
+    };
+    return moduleMap[type.toLowerCase()] ?? type;
   }
 }
 

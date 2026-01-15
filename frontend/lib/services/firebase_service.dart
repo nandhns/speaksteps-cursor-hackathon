@@ -146,13 +146,81 @@ class FirebaseService {
   Future<List<Exercise>> getExercises() async {
     try {
       final snapshot = await _firestore.collection('exercises').get();
-      return snapshot.docs
-          .map((doc) => Exercise.fromMap(doc.data()))
-          .toList();
-    } catch (e) {
+      
+      // Fetch exercises with their questions from subcollection
+      final exercises = <Exercise>[];
+      
+      for (final doc in snapshot.docs) {
+        final exerciseData = doc.data();
+        
+        // Fetch questions subcollection
+        final questionsSnapshot = await doc.reference.collection('questions').get();
+        final questions = questionsSnapshot.docs.map((qDoc) {
+          final qData = qDoc.data();
+          
+          // Map question data properly
+          return {
+            'id': qDoc.id,
+            'imageUrl': qData['stimulusType'] == 'image' ? qData['stimulusValue'] : null,
+            'audioUrl': qData['audioUrl'],
+            'correctAnswer': qData['correctAnswer'] ?? '',
+            'options': qData['options'] ?? [],
+            'imageOptions': qData['imageOptions'] ?? [],
+            'cueHierarchy': qData['cueHierarchy'] ?? {},
+          };
+        }).toList();
+        
+        print('DEBUG: Exercise ${doc.id} has ${questions.length} questions');
+        if (questions.isNotEmpty) {
+          print('  First question: ${questions[0]['correctAnswer']}');
+        }
+        
+        // Add questions to exercise data
+        exerciseData['id'] = doc.id;
+        exerciseData['questions'] = questions;
+        
+        // Map category and exerciseType
+        final category = exerciseData['category'] ?? '';
+        exerciseData['category'] = _mapCategory(category);
+        
+        final type = exerciseData['module'] ?? exerciseData['type'] ?? '';
+        exerciseData['exerciseType'] = _mapExerciseType(type);
+        exerciseData['type'] = type;
+        
+        // Add default values for deprecated fields
+        exerciseData['options'] = [];
+        
+        exercises.add(Exercise.fromMap(exerciseData));
+      }
+      
+      print('DEBUG: Loaded ${exercises.length} total exercises');
+      return exercises;
+    } catch (e, st) {
       print('Error getting exercises: $e');
+      print(st);
       return [];
     }
+  }
+  
+  String _mapCategory(String category) {
+    final categoryMap = {
+      'haiwan': 'animal',
+      'makanan': 'food',
+      'anggota_badan': 'bodyParts',
+      'badan': 'bodyParts',
+      'kata_kerja': 'verbs',
+    };
+    return categoryMap[category.toLowerCase()] ?? 'animal';
+  }
+  
+  String _mapExerciseType(String type) {
+    final typeMap = {
+      'penulisan': 'writing',
+      'kefahaman': 'comprehension',
+      'writing': 'writing',
+      'comprehension': 'comprehension',
+    };
+    return typeMap[type.toLowerCase()] ?? 'writing';
   }
 
   /// Get exercise by ID
@@ -160,11 +228,46 @@ class FirebaseService {
     try {
       final doc = await _firestore.collection('exercises').doc(exerciseId).get();
       if (doc.exists) {
-        return Exercise.fromMap(doc.data()!);
+        final exerciseData = doc.data()!;
+        
+        // Fetch questions subcollection
+        final questionsSnapshot = await doc.reference.collection('questions').get();
+        final questions = questionsSnapshot.docs.map((qDoc) {
+          final qData = qDoc.data();
+          return {
+            'id': qDoc.id,
+            'imageUrl': qData['stimulusType'] == 'image' ? qData['stimulusValue'] : null,
+            'audioUrl': qData['audioUrl'],
+            'correctAnswer': qData['correctAnswer'] ?? '',
+            'options': qData['options'] ?? [],
+            'imageOptions': qData['imageOptions'] ?? [],
+            'cueHierarchy': qData['cueHierarchy'] ?? {},
+          };
+        }).toList();
+        
+        print('DEBUG getExercise: Exercise $exerciseId has ${questions.length} questions');
+        
+        // Add questions to exercise data
+        exerciseData['id'] = doc.id;
+        exerciseData['questions'] = questions;
+        
+        // Map category and exerciseType
+        final category = exerciseData['category'] ?? '';
+        exerciseData['category'] = _mapCategory(category);
+        
+        final type = exerciseData['module'] ?? exerciseData['type'] ?? '';
+        exerciseData['exerciseType'] = _mapExerciseType(type);
+        exerciseData['type'] = type;
+        
+        // Add default values for deprecated fields
+        exerciseData['options'] = [];
+        
+        return Exercise.fromMap(exerciseData);
       }
       return null;
-    } catch (e) {
+    } catch (e, st) {
       print('Error getting exercise: $e');
+      print(st);
       return null;
     }
   }
@@ -410,6 +513,7 @@ class FirebaseService {
     required String diagnosis,
     required String patientPhone,
     required String caregiverName,
+    required String caregiverEmail,
     required String caregiverPhone,
     List<TherapyModule>? assignedModules,
     bool sendOnboardingEmail = true,
@@ -472,6 +576,7 @@ class FirebaseService {
           patientName: name,
           tempPassword: tempPassword,
           assignedModules: assignedModules ?? [TherapyModule.writing],
+          caregiverEmail: caregiverEmail,
         );
       }
 
@@ -485,95 +590,54 @@ class FirebaseService {
     }
   }
 
-  /// Queue an onboarding email to be sent to the patient
-  /// This creates a document in the 'mail' collection which triggers Firebase Extension
+  /// Queue onboarding emails to be sent to patient and caregiver
+  /// This creates two documents in the 'mail' collection which trigger Cloud Function sendOnboardingEmail
+  /// - One for the patient with login credentials, modules, and web/mobile instructions
+  /// - One for the caregiver with supervision steps and guidance
+  /// Both emails are bilingual (English + Bahasa Melayu)
   Future<void> _queueOnboardingEmail({
     required String patientEmail,
     required String patientName,
     required String tempPassword,
     required List<TherapyModule> assignedModules,
+    required String caregiverEmail,
   }) async {
     try {
-      final moduleNames = assignedModules.map((m) => m.name).join(', ');
-      
-      // Create email document for Firebase Trigger Email extension
+      final moduleNames = assignedModules.map((m) => m.toString().split('.').last).toList();
+      print('📧 Queueing emails - Modules: $moduleNames');
+
+      // Queue patient email with login credentials and modules
+      print('📧 Creating patient email document for: $patientEmail');
       await _firestore.collection('mail').add({
         'to': patientEmail,
+        'emailType': 'patient',
+        'patientName': patientName,
+        'patientEmail': patientEmail,
+        'tempPassword': tempPassword,
+        'assignedModules': moduleNames,
         'message': {
-          'subject': 'Welcome to SpeakSteps - Your Therapy App',
-          'html': '''
-<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: #6B46C1; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-    .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }
-    .credentials { background: #E9D8FD; padding: 15px; border-radius: 8px; margin: 20px 0; }
-    .button { background: #6B46C1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block; margin: 10px 0; }
-    .modules { background: #EDF2F7; padding: 10px; border-radius: 4px; }
-    .footer { text-align: center; color: #666; font-size: 12px; margin-top: 20px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>🗣️ Welcome to SpeakSteps!</h1>
-    </div>
-    <div class="content">
-      <p>Hello <strong>$patientName</strong>,</p>
-      <p>Your therapist has set up a SpeakSteps account for you! SpeakSteps is a speech therapy app designed to help you practice and improve your communication skills.</p>
-      
-      <div class="credentials">
-        <h3>📧 Your Login Credentials</h3>
-        <p><strong>Email:</strong> $patientEmail</p>
-        <p><strong>Temporary Password:</strong> $tempPassword</p>
-        <p><em>Please change your password after your first login.</em></p>
-      </div>
-      
-      <div class="modules">
-        <h3>📚 Assigned Modules</h3>
-        <p>Your therapist has assigned you the following therapy modules:</p>
-        <p><strong>$moduleNames</strong></p>
-      </div>
-      
-      <h3>📱 How to Get Started</h3>
-      <p><strong>On Web:</strong></p>
-      <p><a href="https://speaksteps-cursor.web.app" class="button">Open SpeakSteps Web App</a></p>
-      
-      <p><strong>On Mobile:</strong></p>
-      <ol>
-        <li>Download "SpeakSteps" from the App Store (iOS) or Google Play (Android)</li>
-        <li>Open the app and sign in with your credentials above</li>
-        <li>Start practicing your assigned modules!</li>
-      </ol>
-      
-      <h3>💡 Tips for Success</h3>
-      <ul>
-        <li>Practice daily for best results</li>
-        <li>Take your time with each exercise</li>
-        <li>Use the cue/hint buttons when you need help</li>
-        <li>Your progress is tracked automatically</li>
-      </ul>
-      
-      <p>If you have any questions, please contact your therapist.</p>
-      
-      <div class="footer">
-        <p>This email was sent by SpeakSteps Therapy Platform</p>
-        <p>If you didn't expect this email, please ignore it.</p>
-      </div>
-    </div>
-  </div>
-</body>
-</html>
-          ''',
+          'subject': 'Welcome to SpeakSteps | Selamat Datang ke SpeakSteps',
         },
         'createdAt': FieldValue.serverTimestamp(),
       });
-      print('Onboarding email queued for $patientEmail');
+      print('✅ Patient onboarding email queued for $patientEmail');
+
+      // Add a small delay to avoid Mailtrap rate limiting (max 1 email/second)
+      await Future.delayed(const Duration(milliseconds: 1500));
+
+      // Queue caregiver email with supervision steps
+      print('📧 Creating caregiver email document for: $caregiverEmail');
+      await _firestore.collection('mail').add({
+        'to': caregiverEmail,
+        'emailType': 'caregiver',
+        'message': {
+          'subject': 'Welcome to SpeakSteps Caregiver Portal | Selamat Datang ke Portal Penjaga SpeakSteps',
+        },
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      print('✅ Caregiver onboarding email queued for $caregiverEmail');
     } catch (e) {
-      print('Error queuing onboarding email: $e');
+      print('❌ Error queuing onboarding emails: $e');
       // Don't throw - email failure shouldn't block patient creation
     }
   }

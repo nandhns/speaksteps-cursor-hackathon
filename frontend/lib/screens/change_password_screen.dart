@@ -61,6 +61,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       final authProvider = context.read<app_auth.AuthProvider>();
       await authProvider.loadUser(user.uid);
 
+      // Wait for state to settle before navigating to avoid redirect loop
+      await Future.delayed(const Duration(milliseconds: 300));
+
       if (!mounted) return;
       final updatedUser = authProvider.currentUser;
       if (updatedUser?.role == UserRole.patient) {

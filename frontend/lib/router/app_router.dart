@@ -49,7 +49,7 @@ class AppRouter {
             return '/login';
           }
 
-          // Force password change when required
+          // Force password change when required (only if not already there)
           if (isAuthenticated && mustChange && !isChangePasswordPage) {
             return '/change-password';
           }
@@ -72,8 +72,8 @@ class AppRouter {
             }
           }
 
-          // If authenticated, ensure they're on the right page
-          if (isAuthenticated && !isLoginPage) {
+          // If authenticated and NOT on login or change-password, ensure they're on the right dashboard
+          if (isAuthenticated && !isLoginPage && !isChangePasswordPage) {
             if (currentUser?.role == UserRole.patient && state.matchedLocation != '/patient') {
               return '/patient';
             } else if (currentUser?.role == UserRole.therapist && state.matchedLocation != '/therapist') {

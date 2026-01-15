@@ -96,11 +96,19 @@ class _ByPatientViewState extends State<ByPatientView>
     });
   }
 
-  void _handlePatientSelected(UserModel patient) {
+  void _handlePatientSelected(UserModel patient) async {
     setState(() {
       _selectedPatient = patient;
     });
-    _loadPatientScores(patient.id);
+    await _loadPatientScores(patient.id);
+  }
+
+  Future<void> _refreshCurrentPatient() async {
+    if (_selectedPatient != null) {
+      // Reload the patient data and scores
+      await _loadPatients();
+      await _loadPatientScores(_selectedPatient!.id);
+    }
   }
 
   List<UserModel> get _filteredAndSortedPatients {
@@ -202,6 +210,7 @@ class _ByPatientViewState extends State<ByPatientView>
                       PatientDetailsTab(
                         patient: _selectedPatient!,
                         scores: _patientScores,
+                        onPatientUpdated: _refreshCurrentPatient,
                       ),
                       PatientReportTab(
                         patient: _selectedPatient!,

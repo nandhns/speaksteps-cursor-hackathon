@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/app_service.dart';
 import '../../models/user_model.dart';
 import '../../models/exercise_score_model.dart';
-import '../../models/patient_progress_model.dart';
 import 'all_patients_list_tab.dart';
-import 'all_patients_report_tab.dart';
 
 // ServiceFactory is in app_service.dart
 
@@ -32,7 +30,7 @@ class _AllPatientsViewState extends State<AllPatientsView>
   void initState() {
     super.initState();
     _service = ServiceFactory.createService();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 1, vsync: this);
     _loadData();
   }
 
@@ -68,32 +66,10 @@ class _AllPatientsViewState extends State<AllPatientsView>
       return const Center(child: CircularProgressIndicator());
     }
 
-    return Column(
-      children: [
-        TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Patient List'),
-            Tab(text: 'Report'),
-          ],
-        ),
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              AllPatientsListTab(
-                patients: _patients,
-                onRefresh: _loadData,
-                onPatientSelected: widget.onPatientSelected,
-              ),
-              AllPatientsReportTab(
-                patients: _patients,
-                allScores: _allScores,
-              ),
-            ],
-          ),
-        ),
-      ],
+    return AllPatientsListTab(
+      patients: _patients,
+      onRefresh: _loadData,
+      onPatientSelected: widget.onPatientSelected,
     );
   }
 }

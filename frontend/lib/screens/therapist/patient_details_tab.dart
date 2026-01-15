@@ -4,15 +4,20 @@ import '../../models/user_model.dart';
 import '../../models/exercise_score_model.dart';
 import '../../models/exercise_model.dart';
 import '../../services/app_service.dart';
+import '../../theme/app_theme.dart';
+import 'edit_patient_dialog.dart';
+import 'view_questions_dialog.dart';
 
 class PatientDetailsTab extends StatefulWidget {
   final UserModel patient;
   final List<ExerciseScore> scores;
+  final VoidCallback? onPatientUpdated;
 
   const PatientDetailsTab({
     super.key,
     required this.patient,
     required this.scores,
+    this.onPatientUpdated,
   });
 
   @override
@@ -62,14 +67,45 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          widget.patient.name,
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineSmall
-                              ?.copyWith(
-                                fontWeight: FontWeight.bold,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                widget.patient.name,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineSmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                               ),
+                            ),
+                            SizedBox(
+                              width: 36,
+                              height: 36,
+                              child: IconButton(
+                                icon: const Icon(Icons.edit, size: 18),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryPurpleLight,
+                                ),
+                                onPressed: () async {
+                                  await showDialog(
+                                    context: context,
+                                    builder: (context) => EditPatientDialog(
+                                      patient: widget.patient,
+                                      onSaved: () {
+                                        // Dialog will close and parent will refresh
+                                      },
+                                    ),
+                                  );
+                                  // Refresh the view after dialog closes
+                                  if (mounted) {
+                                    widget.onPatientUpdated?.call();
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 16),
                         // Patient Information List - Always show all fields
@@ -107,11 +143,22 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
                           'Caregiver Phone Number',
                           widget.patient.caregiverPhone ?? 'Not provided',
                         ),
+                        const SizedBox(height: 10),
+                        _buildInfoItem(
+                          context,
+                          Icons.school,
+                          'Assigned Modules',
+                          widget.patient.assignedModules == null || widget.patient.assignedModules!.isEmpty
+                              ? 'None assigned'
+                              : widget.patient.assignedModules!
+                                  .map((m) => m.name == 'writing' ? 'Writing' : 'Comprehension')
+                                  .join(', '),
+                        ),
                         const SizedBox(height: 12),
                         Divider(color: Colors.grey.shade300),
                         const SizedBox(height: 8),
                         Text(
-                          'Total Exercises: ${widget.scores.length}',
+                          'Total Modules Completed: ${widget.scores.length}',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                         const SizedBox(height: 4),
@@ -152,11 +199,21 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
             const SizedBox(height: 24),
           ],
           // Recent Exercise Scores
-          Text(
-            'Recent Exercise Scores',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Recent Exercise Scores',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _showAllExercisesDialog(),
+                icon: const Icon(Icons.visibility_outlined, size: 18),
+                label: const Text('View All Exercises'),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           if (widget.scores.isEmpty)
@@ -188,7 +245,8 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
             )
           else
             ...widget.scores.take(20).map((score) {
-              final isPassing = score.score >= 70;
+              final percentage = score.maxScore > 0 ? (score.score / score.maxScore * 100) : 0;
+              final isPassing = percentage >= 70;
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
@@ -249,40 +307,65 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
                         ),
                     ],
                   ),
-                  trailing: SizedBox(
-                    width: 80,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '${score.score}/${score.maxScore}',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: isPassing
-                                    ? Colors.green.shade700
-                                    : Colors.orange.shade700,
-                              ),
-                          overflow: TextOverflow.ellipsis,
+                  trailing: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${score.score}/${score.maxScore}',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: isPassing
+                                  ? Colors.green.shade700
+                                  : Colors.orange.shade700,
+                            ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        '${((score.score / score.maxScore) * 100).toStringAsFixed(0)}%',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
                         ),
-                        Text(
-                          '${((score.score / score.maxScore) * 100).toStringAsFixed(0)}%',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey.shade600,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed: () => _showExerciseQuestions(
+                          score.exerciseId,
+                          score.exerciseTitle,
+                        ),
+                        icon: const Icon(Icons.quiz_outlined, size: 16),
+                        label: const Text('View Questions'),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
                           ),
-                          overflow: TextOverflow.ellipsis,
+                          minimumSize: const Size(0, 32),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               );
             }),
+
+          // Performance by Module Section
+          if (widget.scores.isNotEmpty) ...[
+            const SizedBox(height: 32),
+            Text(
+              'Performance by Module',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            _buildModulePerformanceCards(),
+          ],
         ],
       ),
     );
@@ -293,7 +376,11 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
 
     // Calculate statistics
     final totalScores = widget.scores.length;
-    final correctAnswers = widget.scores.where((s) => s.score >= 70).length;
+    // Calculate success rate based on percentage: (score/maxScore) >= 70%
+    final correctAnswers = widget.scores.where((s) {
+      final percentage = s.maxScore > 0 ? (s.score / s.maxScore * 100) : 0;
+      return percentage >= 70;
+    }).length;
     final successRate = totalScores > 0 ? (correctAnswers / totalScores * 100) : 0.0;
 
     final times = widget.scores
@@ -306,9 +393,10 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
     final totalTime = times.isEmpty ? 0 : times.reduce((a, b) => a + b);
     final totalTimeMin = (totalTime / 60).toStringAsFixed(1);
 
+    // Calculate average score as percentage
     final avgScore = widget.scores.isEmpty
         ? 0.0
-        : widget.scores.map((s) => s.score).reduce((a, b) => a + b) / widget.scores.length;
+        : widget.scores.map((s) => s.maxScore > 0 ? (s.score / s.maxScore * 100) : 0).reduce((a, b) => a + b) / widget.scores.length;
 
     // Cue usage
     final cueLevels = widget.scores
@@ -468,7 +556,10 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
 
       if (categoryScores.isEmpty) continue;
 
-      final correct = categoryScores.where((s) => s.score >= 70).length;
+      final correct = categoryScores.where((s) {
+        final percentage = s.maxScore > 0 ? (s.score / s.maxScore * 100) : 0;
+        return percentage >= 70;
+      }).length;
       final successRate = categoryScores.isEmpty
           ? 0.0
           : (correct / categoryScores.length * 100);
@@ -589,10 +680,10 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
         return '🐾';
       case ExerciseCategory.bodyParts:
         return '👤';
-      case ExerciseCategory.clothing:
-        return '👕';
       case ExerciseCategory.food:
         return '🍎';
+      case ExerciseCategory.verbs:
+        return '🎬';
     }
   }
 
@@ -602,10 +693,10 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
         return 'Animals';
       case ExerciseCategory.bodyParts:
         return 'Body Parts';
-      case ExerciseCategory.clothing:
-        return 'Clothing';
       case ExerciseCategory.food:
         return 'Food';
+      case ExerciseCategory.verbs:
+        return 'Verbs';
     }
   }
 
@@ -666,6 +757,418 @@ class _PatientDetailsTabState extends State<PatientDetailsTab> {
                     ),
               ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showExerciseQuestions(
+    String exerciseId,
+    String exerciseTitle,
+  ) async {
+    setState(() => _isLoading = true);
+    try {
+      final exercise = await _service.getExercise(exerciseId);
+      setState(() => _isLoading = false);
+
+      if (!mounted) return;
+
+      if (exercise == null || exercise.questions.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'No questions available for $exerciseTitle',
+            ),
+          ),
+        );
+        return;
+      }
+
+      showDialog(
+        context: context,
+        builder: (context) => ViewQuestionsDialog(
+          questions: exercise.questions,
+          exerciseTitle: exercise.title,
+        ),
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading questions: $e')),
+      );
+    }
+  }
+
+  Future<void> _showAllExercisesDialog() async {
+    setState(() => _isLoading = true);
+    try {
+      final exercises = await _service.getExercises();
+      setState(() => _isLoading = false);
+
+      if (!mounted) return;
+
+      // Group exercises by module -> category -> exercises
+      final groupedByModule = <String, Map<String, List<Exercise>>>{};
+      for (var exercise in exercises) {
+        final module = _getModuleName(exercise.type);
+        final category = _getCategoryName(exercise.category);
+        
+        groupedByModule.putIfAbsent(module, () => {});
+        groupedByModule[module]!.putIfAbsent(category, () => []).add(exercise);
+      }
+
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          child: Container(
+            width: 700,
+            constraints: const BoxConstraints(maxHeight: 750),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryPurple.withOpacity(0.1),
+                    border: Border(
+                      bottom: BorderSide(color: Colors.grey.shade300),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.quiz, color: AppTheme.primaryPurple),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'All Exercises',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryPurple,
+                              ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+                // Exercise list with hierarchy
+                Flexible(
+                  child: ListView(
+                    padding: const EdgeInsets.all(24),
+                    children: groupedByModule.entries.map((moduleEntry) {
+                      return _buildModuleSection(context, moduleEntry.key, moduleEntry.value);
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading exercises: $e')),
+        );
+      }
+    }
+  }
+
+  Widget _buildModuleSection(BuildContext context, String moduleName, Map<String, List<Exercise>> categories) {
+    return ExpansionTile(
+      initiallyExpanded: false,
+      leading: Icon(
+        moduleName == 'Menulis' ? Icons.edit : Icons.hearing,
+        color: AppTheme.primaryPurple,
+      ),
+      title: Text(
+        moduleName,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: AppTheme.primaryPurple,
+        ),
+      ),
+      subtitle: Text(
+        '${categories.values.fold<int>(0, (sum, list) => sum + list.length)} exercises',
+        style: TextStyle(color: Colors.grey.shade600),
+      ),
+      children: categories.entries.map((categoryEntry) {
+        return _buildCategorySection(context, categoryEntry.key, categoryEntry.value);
+      }).toList(),
+    );
+  }
+
+  Widget _buildCategorySection(BuildContext context, String categoryName, List<Exercise> exercises) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16),
+      child: ExpansionTile(
+        initiallyExpanded: false,
+        leading: Icon(Icons.folder, color: AppTheme.warning, size: 20),
+        title: Text(
+          categoryName,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.warning,
+          ),
+        ),
+        subtitle: Text(
+          '${exercises.length} exercises',
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+        ),
+        children: exercises.map((exercise) {
+          return Padding(
+            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+            child: ExpansionTile(
+              initiallyExpanded: false,
+              tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+              leading: CircleAvatar(
+                backgroundColor: AppTheme.primaryPurple.withOpacity(0.2),
+                radius: 18,
+                child: Text(
+                  exercise.questions.length.toString(),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryPurple,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              title: Text(
+                exercise.title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
+              ),
+              subtitle: Text(
+                '${exercise.questions.length} questions',
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 12,
+                ),
+              ),
+              children: exercise.questions.asMap().entries.map((entry) {
+                final index = entry.key + 1;
+                final question = entry.value;
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  elevation: 0,
+                  color: Colors.grey.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Question $index',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (question.imageUrl != null) ...[
+                          Text('Image: ${question.imageUrl}',
+                            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                        ],
+                        Text(
+                          'Correct Answer: ${question.correctAnswer}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.green.shade700,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (question.options != null && question.options!.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Options: ${question.options!.join(", ")}',
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  String _getModuleName(String type) {
+    final moduleMap = {
+      'penulisan': 'Menulis',
+      'kefahaman': 'Kefahaman',
+      'writing': 'Menulis',
+      'comprehension': 'Kefahaman',
+    };
+    return moduleMap[type.toLowerCase()] ?? type;
+  }
+
+  Widget _buildModulePerformanceCards() {
+    // Calculate module statistics
+    final menulistScores = widget.scores.where((s) => s.exerciseModule == 'Menulis').toList();
+    final kefahamanScores = widget.scores.where((s) => s.exerciseModule == 'Kefahaman').toList();
+
+    return Column(
+      children: [
+        if (menulistScores.isNotEmpty)
+          _buildModuleCard(
+            'Menulis (Writing)',
+            menulistScores,
+            Colors.blue,
+          ),
+        const SizedBox(height: 12),
+        if (kefahamanScores.isNotEmpty)
+          _buildModuleCard(
+            'Kefahaman (Comprehension)',
+            kefahamanScores,
+            Colors.purple,
+          ),
+        if (menulistScores.isEmpty && kefahamanScores.isEmpty)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Center(
+                child: Text(
+                  'No module performance data available yet',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildModuleCard(String moduleName, List<ExerciseScore> scores, MaterialColor color) {
+    final totalScores = scores.length;
+    final averageScore = scores.fold<double>(0, (sum, s) => sum + (s.score / s.maxScore * 100)) / totalScores;
+    final passingCount = scores.where((s) => s.score / s.maxScore >= 0.7).length;
+    final passingRate = (passingCount / totalScores * 100);
+
+    // Get unique exercises
+    final uniqueExercises = scores.map((s) => s.exerciseId).toSet().length;
+
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  moduleName.contains('Writing') ? Icons.edit : Icons.hearing,
+                  color: color,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  moduleName,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: color.shade700,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildModuleStatItem(
+                    'Average Score',
+                    '${averageScore.toStringAsFixed(1)}%',
+                    Icons.trending_up,
+                    color,
+                  ),
+                ),
+                Expanded(
+                  child: _buildModuleStatItem(
+                    'Passing Rate',
+                    '${passingRate.toStringAsFixed(0)}%',
+                    Icons.check_circle,
+                    color,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildModuleStatItem(
+                    'Total Attempts',
+                    '$totalScores',
+                    Icons.assignment,
+                    color,
+                  ),
+                ),
+                Expanded(
+                  child: _buildModuleStatItem(
+                    'Exercises Tried',
+                    '$uniqueExercises',
+                    Icons.apps,
+                    color,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModuleStatItem(String label, String value, IconData icon, MaterialColor color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: color.shade400),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: color.shade700,
           ),
         ),
       ],

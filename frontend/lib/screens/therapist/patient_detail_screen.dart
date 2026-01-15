@@ -228,6 +228,19 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              if (score.exerciseModule != null) ...[
+                                Text(
+                                  'Module: ${score.exerciseModule}',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: score.exerciseModule == 'Menulis'
+                                        ? Colors.blue.shade700
+                                        : Colors.purple.shade700,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                              ],
                               const SizedBox(height: 4),
                               Text(
                                 'Completed: ${DateFormat('MMM d, yyyy • h:mm a').format(score.completedAt)}',
@@ -282,6 +295,17 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                         ),
                       );
                     }),
+
+                  // Performance by Module Section
+                  const SizedBox(height: 32),
+                  Text(
+                    'Performance by Module',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildModulePerformanceCards(),
                 ],
               ),
             ),
@@ -323,5 +347,154 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
       ),
     );
   }
-}
 
+  Widget _buildModulePerformanceCards() {
+    // Calculate module statistics
+    final menulistScores = _recentScores.where((s) => s.exerciseModule == 'Menulis').toList();
+    final kefahamanScores = _recentScores.where((s) => s.exerciseModule == 'Kefahaman').toList();
+
+    return Column(
+      children: [
+        if (menulistScores.isNotEmpty)
+          _buildModuleCard(
+            'Menulis (Writing)',
+            menulistScores,
+            Colors.blue,
+          ),
+        const SizedBox(height: 12),
+        if (kefahamanScores.isNotEmpty)
+          _buildModuleCard(
+            'Kefahaman (Comprehension)',
+            kefahamanScores,
+            Colors.purple,
+          ),
+        if (menulistScores.isEmpty && kefahamanScores.isEmpty)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Center(
+                child: Text(
+                  'No module performance data available yet',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildModuleCard(String moduleName, List<ExerciseScore> scores, MaterialColor color) {
+    final totalScores = scores.length;
+    final averageScore = scores.fold<double>(0, (sum, s) => sum + (s.score / s.maxScore * 100)) / totalScores;
+    final passingCount = scores.where((s) => s.score / s.maxScore >= 0.7).length;
+    final passingRate = (passingCount / totalScores * 100);
+
+    // Get unique exercises
+    final uniqueExercises = scores.map((s) => s.exerciseId).toSet().length;
+
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  moduleName.contains('Writing') ? Icons.edit : Icons.hearing,
+                  color: color,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  moduleName,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: color.shade700,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildModuleStatItem(
+                    'Average Score',
+                    '${averageScore.toStringAsFixed(1)}%',
+                    Icons.trending_up,
+                    color,
+                  ),
+                ),
+                Expanded(
+                  child: _buildModuleStatItem(
+                    'Passing Rate',
+                    '${passingRate.toStringAsFixed(0)}%',
+                    Icons.check_circle,
+                    color,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildModuleStatItem(
+                    'Total Attempts',
+                    '$totalScores',
+                    Icons.assignment,
+                    color,
+                  ),
+                ),
+                Expanded(
+                  child: _buildModuleStatItem(
+                    'Exercises Tried',
+                    '$uniqueExercises',
+                    Icons.apps,
+                    color,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModuleStatItem(String label, String value, IconData icon, MaterialColor color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: color.shade400),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: color.shade700,
+          ),
+        ),
+      ],
+    );
+  }
+}

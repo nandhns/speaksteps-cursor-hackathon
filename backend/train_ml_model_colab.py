@@ -76,15 +76,7 @@ print("\n🔧 Engineering features...")
 
 data = df.copy()
 
-# Create target variable: need_cue_next
-# Logic: User needs cue if they struggled (took long time, got wrong, or needed cue)
-data['need_cue_next'] = (
-    (data['response_time_seconds'] > 15) |  # Slow response
-    (data['correct'] == 0) |                 # Incorrect answer
-    (data['cue_given'] == 1)                 # Already needed cue
-).astype(int)
-
-# Encode categorical variables
+# Encode categorical variables FIRST (before using in target variable)
 data['difficulty_flag'] = (data['difficulty_label'] == 'hard').astype(int)
 data['device_mobile_flag'] = (data['device_type'] == 'mobile').astype(int)
 
@@ -110,8 +102,25 @@ cue_type_map = {
 }
 data['cue_type_encoded'] = data['cue_type'].fillna('none').map(cue_type_map)
 
+# Enhanced features from enriched metadata
+# Cue sequence position (normalized 0-1)
+data['cue_sequence_normalized'] = data['cue_sequence_number'].fillna(0) / 10.0
+
+# Exercise duration (normalize from seconds to minutes, then 0-1 scale)
+data['exercise_duration_minutes'] = data['exercise_duration_seconds'].fillna(0) / 60.0
+data['exercise_duration_normalized'] = np.clip(data['exercise_duration_minutes'] / 120.0, 0, 1)
+
+# Correctness before cue (MUST come before target variable)
+data['correct_before_cue_flag'] = data['correct_before_cue'].fillna(0).astype(int)
+
+# Module duration (calculate from iso timestamps)
+data['module_start_at'] = pd.to_datetime(data['module_start_at_iso'], format='ISO8601')
+data['module_end_at'] = pd.to_datetime(data['module_end_at_iso'], format='ISO8601')
+data['module_duration_seconds'] = (data['module_end_at'] - data['module_start_at']).dt.total_seconds().fillna(0)
+data['module_duration_normalized'] = np.clip(data['module_duration_seconds'] / 3600.0, 0, 1)  # Normalize to 0-1 (1 hour = max)
+
 # Time of day features (from presented_at_iso)
-data['presented_at'] = pd.to_datetime(data['presented_at_iso'])
+data['presented_at'] = pd.to_datetime(data['presented_at_iso'], format='ISO8601')
 data['hour'] = data['presented_at'].dt.hour
 data['time_morning'] = ((data['hour'] >= 6) & (data['hour'] < 12)).astype(int)
 data['time_afternoon'] = ((data['hour'] >= 12) & (data['hour'] < 17)).astype(int)
@@ -128,6 +137,14 @@ data['cat_body_parts'] = (data['category'] == 'body_parts').astype(int)
 data['cat_clothing'] = (data['category'] == 'clothing').astype(int)
 data['cat_food'] = (data['category'] == 'food').astype(int)
 
+# NOW create target variable after all features are ready
+# Logic: User needs cue if they struggled and were wrong before, or already needed cue
+data['need_cue_next'] = (
+    ((data['response_time_seconds'] > 15) & (data['correct_before_cue_flag'] == 0)) |
+    ((data['correct'] == 0) & (data['correct_before_cue_flag'] == 0)) |
+    (data['cue_given'] == 1)
+).astype(int)
+
 print("✅ Features engineered!")
 
 # ============================================================================
@@ -135,27 +152,31 @@ print("✅ Features engineered!")
 # ============================================================================
 print("\n📊 Preparing training data...")
 
-# Select features for model (19 features total)
+# Select features for model (23 features total - enhanced with enriched metadata)
 feature_columns = [
-    'response_time_seconds',      # 0
-    'cue_given',                   # 1
-    'cue_stage',                   # 2
-    'hint_count',                  # 3
-    'difficulty_flag',             # 4
-    'device_mobile_flag',          # 5
-    'therapist_assigned_level',    # 6
-    'question_type_encoded',       # 7
-    'cue_type_encoded',            # 8
-    'time_morning',                # 9
-    'time_afternoon',              # 10
-    'time_evening',                # 11
-    'time_night',                  # 12
-    'module_comprehension',        # 13
-    'module_writing',              # 14
-    'cat_animals',                 # 15
-    'cat_body_parts',              # 16
-    'cat_clothing',                # 17
-    'cat_food',                    # 18
+    'response_time_seconds',           # 0
+    'cue_given',                        # 1
+    'cue_stage',                        # 2
+    'hint_count',                       # 3
+    'difficulty_flag',                  # 4
+    'device_mobile_flag',               # 5
+    'therapist_assigned_level',         # 6
+    'question_type_encoded',            # 7
+    'cue_type_encoded',                 # 8
+    'time_morning',                     # 9
+    'time_afternoon',                   # 10
+    'time_evening',                     # 11
+    'time_night',                       # 12
+    'module_comprehension',             # 13
+    'module_writing',                   # 14
+    'cat_animals',                      # 15
+    'cat_body_parts',                   # 16
+    'cat_clothing',                     # 17
+    'cat_food',                         # 18
+    'cue_sequence_normalized',          # 19 - NEW: Position in cue sequence (1st, 2nd, 3rd cue)
+    'exercise_duration_normalized',     # 20 - NEW: How long exercise took (normalized)
+    'correct_before_cue_flag',          # 21 - NEW: Was answer correct BEFORE cue intervention?
+    'module_duration_normalized',       # 22 - NEW: Module session duration (normalized)
 ]
 
 X = data[feature_columns].fillna(0).values
@@ -180,11 +201,13 @@ scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
-# Build model
+# Build model (expanded for 23 features with enriched metadata)
 model = models.Sequential([
-    layers.Input(shape=(19,)),
-    layers.Dense(32, activation='relu'),
+    layers.Input(shape=(23,)),
+    layers.Dense(64, activation='relu'),
     layers.Dropout(0.3),
+    layers.Dense(32, activation='relu'),
+    layers.Dropout(0.2),
     layers.Dense(16, activation='relu'),
     layers.Dropout(0.2),
     layers.Dense(8, activation='relu'),
@@ -272,7 +295,7 @@ plt.show()
 print("\n🔄 Converting to TFLite...")
 
 # Save full model first
-model.save('saved_model')
+model.export('saved_model')
 print("✅ Saved full model to 'saved_model' directory")
 
 # Convert to TFLite (float32)
@@ -374,6 +397,11 @@ print("\n📋 Next Steps:")
 print("1. Copy downloaded files to: backend/models/")
 print("2. Also download the 'saved_model' folder (if needed)")
 print("3. Update backend code to load the real TFLite model")
+print("\n✅ Model Features (23 total):")
+print("   - Core: response_time, cue_given, cue_stage, hints, difficulty, device")
+print("   - Categories: animals, body_parts, clothing, food")
+print("   - Time: morning, afternoon, evening, night")
+print("   - ENRICHED: cue_sequence, exercise_duration, correct_before_cue, module_duration")
 print("\n✅ Model Performance:")
 print(f"   - Accuracy: {accuracy:.2%}")
 print(f"   - Precision: {precision:.2%}")

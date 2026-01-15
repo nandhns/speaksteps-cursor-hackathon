@@ -24,11 +24,12 @@ class ImageHelper {
       case 'body_parts':
         categoryPrefix = 'body_parts';
         break;
-      case 'clothing':
-        categoryPrefix = 'clothing';
-        break;
       case 'food':
         categoryPrefix = 'food';
+        break;
+      case 'verb':
+      case 'verbs':
+        categoryPrefix = 'verbs';
         break;
       default:
         return null;
@@ -46,7 +47,7 @@ class ImageHelper {
     final normalizedItem = item.toLowerCase().replaceAll(' ', '_');
     
     // Try each category
-    final categories = ['animals', 'body_parts', 'clothing', 'food'];
+    final categories = ['animals', 'body_parts', 'food', 'verbs'];
     for (final category in categories) {
       final path = 'images/${category}_$normalizedItem.png';
       // In a real app, you'd check if the asset exists
@@ -65,8 +66,8 @@ class ImageHelper {
     final categoryItems = {
       'animals': ['dog', 'cat', 'bird', 'fish', 'horse', 'cow', 'pig', 'duck', 'frog', 'lion'],
       'body_parts': ['hand', 'foot', 'arm', 'leg', 'head', 'eye', 'ear', 'nose', 'mouth', 'knee'],
-      'clothing': ['shirt', 'pants', 'dress', 'shoe', 'hat', 'sock', 'jacket', 'coat', 'glove', 'belt'],
       'food': ['apple', 'bread', 'milk', 'egg', 'rice', 'cheese', 'banana', 'orange', 'carrot', 'cake'],
+      'verbs': ['eat', 'sleep', 'run', 'jump', 'walk', 'sit', 'stand', 'dance', 'sing', 'clap'],
     };
     
     return categoryItems[category]?.contains(item) ?? false;

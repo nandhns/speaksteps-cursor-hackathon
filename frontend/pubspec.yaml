@@ -49,7 +49,11 @@ dependencies:
   file_picker: ^8.1.2  # For CSV file upload
   shared_preferences: ^2.2.2  # For storing user preferences (language, etc.)
   csv: ^6.0.0  # For CSV parsing
-  # tflite_flutter: ^0.12.1  # Disabled for web compatibility - using rule-based prediction
+  # ML/AI for cue prediction - conditional for native platforms
+  tflite_flutter:
+    version: ^0.11.0
+    # Only include on native platforms (Android, iOS, macOS, Windows, Linux)
+    # Not available on web due to platform limitations
 
 dev_dependencies:
   flutter_test:

@@ -1,8 +1,8 @@
 enum ExerciseCategory {
   animal,
   bodyParts,
-  clothing,
   food,
+  verbs,
 }
 
 enum ExerciseType {
@@ -120,10 +120,17 @@ class Exercise {
                 id: q['id'] ?? '',
                 imageUrl: q['imageUrl'],
                 audioUrl: q['audioUrl'],
-                correctAnswer: q['correctAnswer'] ?? '',
-                options: q['options'] != null ? List<String>.from(q['options']) : null,
-                imageOptions: q['imageOptions'] != null ? List<String>.from(q['imageOptions']) : null,
-                cueHierarchy: q['cueHierarchy'] != null ? Map<String, String>.from(q['cueHierarchy']) : null,
+            // Coerce to string to handle numeric values stored in Firestore
+            correctAnswer: q['correctAnswer']?.toString() ?? '',
+            options: q['options'] != null
+              ? (q['options'] as List).map((e) => e.toString()).toList()
+              : null,
+            imageOptions: q['imageOptions'] != null
+              ? (q['imageOptions'] as List).map((e) => e.toString()).toList()
+              : null,
+            cueHierarchy: q['cueHierarchy'] != null
+              ? (q['cueHierarchy'] as Map).map((key, value) => MapEntry(key.toString(), value?.toString() ?? ''))
+              : null,
               )).toList()
           : [],
     );

@@ -575,10 +575,10 @@ class ReportUtils {
         return 'Animal';
       case 'bodyParts':
         return 'Body Parts';
-      case 'clothing':
-        return 'Clothing';
       case 'food':
         return 'Food';
+      case 'verbs':
+        return 'Verbs';
       default:
         return category;
     }

@@ -3,7 +3,7 @@
 /// Platform-agnostic interface for cue prediction.
 /// Implementations: TFLite (native) and Web (rule-based)
 
-/// Input features for the cue prediction
+/// Input features for the cue prediction (23 features - trained model)
 class CuePredictorInput {
   final double responseTimeSeconds;
   final int cueGiven;
@@ -24,6 +24,11 @@ class CuePredictorInput {
   final int catBodyParts;
   final int catClothing;
   final int catFood;
+  // NEW: Enriched metadata features
+  final double cueSequenceNormalized;
+  final double exerciseDurationNormalized;
+  final int correctBeforeCueFlag;
+  final double moduleDurationNormalized;
 
   const CuePredictorInput({
     required this.responseTimeSeconds,
@@ -45,6 +50,10 @@ class CuePredictorInput {
     required this.catBodyParts,
     required this.catClothing,
     required this.catFood,
+    this.cueSequenceNormalized = 0.0,
+    this.exerciseDurationNormalized = 0.0,
+    this.correctBeforeCueFlag = 0,
+    this.moduleDurationNormalized = 0.0,
   });
 
   /// Create input from a simplified feature map
@@ -116,25 +125,29 @@ class CuePredictorInput {
 
   List<double> toFeatureVector() {
     return [
-      responseTimeSeconds,
-      cueGiven.toDouble(),
-      cueStage.toDouble(),
-      hintCount.toDouble(),
-      difficultyFlag.toDouble(),
-      deviceMobileFlag.toDouble(),
-      therapistAssignedLevel.toDouble(),
-      questionTypeEncoded.toDouble(),
-      cueTypeEncoded.toDouble(),
-      timeMorning.toDouble(),
-      timeAfternoon.toDouble(),
-      timeEvening.toDouble(),
-      timeNight.toDouble(),
-      moduleComprehension.toDouble(),
-      moduleWriting.toDouble(),
-      catAnimals.toDouble(),
-      catBodyParts.toDouble(),
-      catClothing.toDouble(),
-      catFood.toDouble(),
+      responseTimeSeconds,                    // 0
+      cueGiven.toDouble(),                    // 1
+      cueStage.toDouble(),                    // 2
+      hintCount.toDouble(),                   // 3
+      difficultyFlag.toDouble(),              // 4
+      deviceMobileFlag.toDouble(),            // 5
+      therapistAssignedLevel.toDouble(),      // 6
+      questionTypeEncoded.toDouble(),         // 7
+      cueTypeEncoded.toDouble(),              // 8
+      timeMorning.toDouble(),                 // 9
+      timeAfternoon.toDouble(),               // 10
+      timeEvening.toDouble(),                 // 11
+      timeNight.toDouble(),                   // 12
+      moduleComprehension.toDouble(),         // 13
+      moduleWriting.toDouble(),               // 14
+      catAnimals.toDouble(),                  // 15
+      catBodyParts.toDouble(),                // 16
+      catClothing.toDouble(),                 // 17
+      catFood.toDouble(),                     // 18
+      cueSequenceNormalized,                  // 19 - NEW
+      exerciseDurationNormalized,             // 20 - NEW
+      correctBeforeCueFlag.toDouble(),        // 21 - NEW
+      moduleDurationNormalized,               // 22 - NEW
     ];
   }
 }
@@ -162,7 +175,7 @@ class CuePredictionResult {
 abstract class ICuePredictor {
   bool get isLoaded;
   String get platformName;
-  static const int inputFeatureCount = 19;
+  static const int inputFeatureCount = 23;  // Updated to 23 features
   static const double threshold = 0.5;
   
   Future<void> loadModel();

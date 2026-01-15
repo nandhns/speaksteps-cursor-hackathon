@@ -42,6 +42,7 @@ class _CsvUploadDialogState extends State<CsvUploadDialog> {
     'diagnosis',
     'patient_phone',
     'caregiver_name',
+    'caregiver_email',
     'caregiver_phone',
   ];
 
@@ -268,6 +269,7 @@ patient3@example.com,David Brown,Anomic Aphasia,+1234567894,Lisa Brown,+12345678
           diagnosis: row['diagnosis']!,
           patientPhone: row['patient_phone']!,
           caregiverName: row['caregiver_name']!,
+          caregiverEmail: row['caregiver_email']!,
           caregiverPhone: row['caregiver_phone']!,
           assignedModules: _parseModules(row[_modulesHeader]),
           sendOnboardingEmail: _sendOnboardingEmails,

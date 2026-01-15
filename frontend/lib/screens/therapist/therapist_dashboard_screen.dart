@@ -4,11 +4,10 @@ import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart' as app_auth;
 import '../../models/user_model.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/cue_predictor_demo_web.dart';
 import 'all_patients_view.dart';
 import 'by_patient_view.dart';
 
-enum DashboardView { all, byPatient, mlPredictor }
+enum DashboardView { all, byPatient }
 
 class TherapistDashboardScreen extends StatefulWidget {
   const TherapistDashboardScreen({super.key});
@@ -132,13 +131,6 @@ class _TherapistDashboardScreenState extends State<TherapistDashboardScreen> {
             isSelected: _currentView == DashboardView.byPatient,
             onTap: () => setState(() => _currentView = DashboardView.byPatient),
           ),
-          _NavTab(
-            label: 'ML Predictor',
-            icon: Icons.psychology_outlined,
-            isSelected: _currentView == DashboardView.mlPredictor,
-            onTap: () => setState(() => _currentView = DashboardView.mlPredictor),
-            isPrimary: true,
-          ),
         ],
       ),
     );
@@ -219,8 +211,6 @@ class _TherapistDashboardScreenState extends State<TherapistDashboardScreen> {
         return AllPatientsView(onPatientSelected: _navigateToPatient);
       case DashboardView.byPatient:
         return ByPatientView(initialPatient: _patientToSelect);
-      case DashboardView.mlPredictor:
-        return const CuePredictorDemoWeb();
     }
   }
 }

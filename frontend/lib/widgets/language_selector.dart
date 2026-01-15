@@ -17,40 +17,46 @@ class LanguageSelector extends StatelessWidget {
       builder: (context, languageProvider, child) {
         final isEnglish = languageProvider.locale.languageCode == 'en';
         
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (showLabel)
-              Text(
-                isEnglish ? 'Language: ' : 'Bahasa: ',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.outline,
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (showLabel)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Text(
+                    isEnglish ? 'Language: ' : 'Bahasa: ',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _LanguageButton(
+                      label: 'EN',
+                      isSelected: isEnglish,
+                      onTap: () => languageProvider.setLocale(const Locale('en')),
+                      isLeft: true,
+                    ),
+                    _LanguageButton(
+                      label: 'BM',
+                      isSelected: !isEnglish,
+                      onTap: () => languageProvider.setLocale(const Locale('ms')),
+                      isLeft: false,
+                    ),
+                  ],
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _LanguageButton(
-                    label: 'EN',
-                    isSelected: isEnglish,
-                    onTap: () => languageProvider.setLocale(const Locale('en')),
-                    isLeft: true,
-                  ),
-                  _LanguageButton(
-                    label: 'BM',
-                    isSelected: !isEnglish,
-                    onTap: () => languageProvider.setLocale(const Locale('ms')),
-                    isLeft: false,
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -75,14 +81,14 @@ class _LanguageButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected 
               ? Theme.of(context).colorScheme.primary 
               : Colors.transparent,
           borderRadius: BorderRadius.horizontal(
-            left: isLeft ? const Radius.circular(24) : Radius.zero,
-            right: !isLeft ? const Radius.circular(24) : Radius.zero,
+            left: isLeft ? const Radius.circular(20) : Radius.zero,
+            right: !isLeft ? const Radius.circular(20) : Radius.zero,
           ),
         ),
         child: Text(
@@ -92,6 +98,7 @@ class _LanguageButton extends StatelessWidget {
                 ? Theme.of(context).colorScheme.onPrimary 
                 : Theme.of(context).colorScheme.onSurface,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontSize: 12,
           ),
         ),
       ),

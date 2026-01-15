@@ -33,6 +33,14 @@ service cloud.firestore {
       allow create: if isAuth();
       allow update: if isAuth();
       allow delete: if isAuth();
+      
+      // Nested questions subcollection
+      match /questions/{questionId} {
+        allow read: if isAuth();
+        allow create: if isAuth();
+        allow update: if isAuth();
+        allow delete: if isAuth();
+      }
     }
     
     // =========================================================================

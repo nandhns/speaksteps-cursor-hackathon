@@ -5,6 +5,7 @@ class ExerciseScore {
   final String patientId;
   final String exerciseId;
   final String exerciseTitle;
+  final String? exerciseModule; // "Menulis" or "Kefahaman"
   final int score; // 0-100
   final int maxScore;
   final String? answer;
@@ -17,6 +18,7 @@ class ExerciseScore {
     required this.patientId,
     required this.exerciseId,
     required this.exerciseTitle,
+    this.exerciseModule,
     required this.score,
     required this.maxScore,
     this.answer,
@@ -31,6 +33,7 @@ class ExerciseScore {
       'patientId': patientId,
       'exerciseId': exerciseId,
       'exerciseTitle': exerciseTitle,
+      'exerciseModule': exerciseModule,
       'score': score,
       'maxScore': maxScore,
       'answer': answer,
@@ -65,6 +68,7 @@ class ExerciseScore {
       patientId: map['patientId'] ?? '',
       exerciseId: map['exerciseId'] ?? '',
       exerciseTitle: map['exerciseTitle'] ?? '',
+      exerciseModule: map['exerciseModule'],
       score: map['score'] ?? 0,
       maxScore: map['maxScore'] ?? 100,
       answer: map['answer'],
