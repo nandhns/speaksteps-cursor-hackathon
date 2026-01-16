@@ -115,12 +115,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            'Set a new password',
+                            strings.setNewPassword,
                             style: Theme.of(context).textTheme.headlineMedium,
                           ),
                           const SizedBox(height: AppTheme.spacingSm),
                           Text(
-                            'Please change your temporary password before using SpeakSteps.',
+                            strings.changePasswordMessage,
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                           const SizedBox(height: AppTheme.spacingXl),
@@ -141,16 +141,16 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           ),
                           const SizedBox(height: AppTheme.spacingLg),
                           _buildField(
-                            label: 'Confirm password',
+                            label: strings.confirmPasswordLabel,
                             controller: _confirmController,
                             obscure: _obscure,
                             onToggle: () => setState(() => _obscure = !_obscure),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please confirm your password';
+                                return strings.pleaseConfirmPassword;
                               }
                               if (value != _passwordController.text) {
-                                return 'Passwords do not match';
+                                return strings.passwordsDoNotMatch;
                               }
                               return null;
                             },
@@ -171,7 +171,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                     ),
                                   )
-                                : const Text('Save and continue'),
+                                : Text(strings.saveAndContinue),
                           ),
                         ],
                       ),
@@ -211,7 +211,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         ),
         const SizedBox(height: AppTheme.spacingLg),
         Text(
-          'Change Password',
+          strings.changePassword,
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 color: AppTheme.primaryPurple,
                 fontWeight: FontWeight.w700,
@@ -219,7 +219,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         ),
         const SizedBox(height: AppTheme.spacingXs),
         Text(
-          'For security, update your temporary password now.',
+          strings.forSecurityUpdateTemporary,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: AppTheme.textSecondary,
               ),

@@ -65,6 +65,61 @@ class UserModel {
 
   // Create from Map (from Firebase)
   factory UserModel.fromMap(Map<String, dynamic> map) {
+    print('DEBUG UserModel.fromMap: Full map keys: ${map.keys.toList()}');
+    print('DEBUG UserModel.fromMap: assignedModules raw data: ${map["assignedModules"]} (type: ${map["assignedModules"].runtimeType})');
+    
+    // Handle assignedModules - convert from List<dynamic> of strings to List<TherapyModule>
+    List<TherapyModule>? modules;
+    try {
+      final rawModules = map['assignedModules'];
+      
+      // Debug what we're working with
+      print('DEBUG UserModel.fromMap: rawModules is null: ${rawModules == null}');
+      print('DEBUG UserModel.fromMap: rawModules is List: ${rawModules is List}');
+      
+      if (rawModules != null && rawModules is List) {
+        if (rawModules.isNotEmpty) {
+          print('DEBUG UserModel.fromMap: Processing ${rawModules.length} modules');
+          final convertedModules = <TherapyModule>[];
+          
+          for (final m in rawModules) {
+            print('  - Mapping module: $m (type: ${m.runtimeType})');
+            // Handle both String and already-converted enum values
+            final moduleString = m is String ? m : (m is TherapyModule ? m.name : m.toString());
+            
+            // Find the matching enum value
+            TherapyModule? foundModule;
+            try {
+              foundModule = TherapyModule.values.firstWhere(
+                (e) => e.name == moduleString,
+              );
+              print('    ✅ Found module: $foundModule');
+            } catch (e) {
+              print('    ❌ Could not find module: $moduleString - defaulting to writing');
+              foundModule = TherapyModule.writing;
+            }
+            
+            convertedModules.add(foundModule);
+          }
+          
+          modules = convertedModules;
+          print('DEBUG UserModel.fromMap: Successfully converted to ${modules.length} modules: $modules');
+        } else {
+          print('DEBUG UserModel.fromMap: List is empty, modules will be null');
+          modules = null;
+        }
+      } else if (rawModules != null) {
+        print('DEBUG UserModel.fromMap: assignedModules is not a List, it is: ${rawModules.runtimeType}');
+        modules = null;
+      } else {
+        print('DEBUG UserModel.fromMap: assignedModules is null');
+        modules = null;
+      }
+    } catch (e) {
+      print('ERROR UserModel.fromMap: Exception processing assignedModules: $e');
+      modules = null;
+    }
+    
     return UserModel(
       id: map['id'] ?? '',
       email: map['email'] ?? '',
@@ -81,12 +136,7 @@ class UserModel {
       caregiverName: map['caregiverName'],
       caregiverPhone: map['caregiverPhone'],
       therapistId: map['therapistId'],
-      assignedModules: (map['assignedModules'] as List<dynamic>?)
-          ?.map((m) => TherapyModule.values.firstWhere(
-                (e) => e.name == m,
-                orElse: () => TherapyModule.writing,
-              ))
-          .toList(),
+      assignedModules: modules,
       onboardingEmailSent: map['onboardingEmailSent'],
       preferredLanguage: map['preferredLanguage'],
       mustChangePassword: map['mustChangePassword'],

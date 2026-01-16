@@ -79,8 +79,8 @@ class CuePredictorInput {
       difficultyFlag: difficulty == 'hard' ? 1 : 0,
       deviceMobileFlag: isMobile ? 1 : 0,
       therapistAssignedLevel: therapistLevel,
-      questionTypeEncoded: _encodeQuestionType(questionType),
-      cueTypeEncoded: _encodeCueType(cueType),
+      questionTypeEncoded: encodeQuestionType(questionType),
+      cueTypeEncoded: encodeCueType(cueType),
       timeMorning: timeOfDay == 'morning' ? 1 : 0,
       timeAfternoon: timeOfDay == 'afternoon' ? 1 : 0,
       timeEvening: timeOfDay == 'evening' ? 1 : 0,
@@ -94,7 +94,7 @@ class CuePredictorInput {
     );
   }
 
-  static int _encodeQuestionType(String type) {
+  static int encodeQuestionType(String type) {
     const encoding = {
       'category_sorting': 0,
       'fill_in_blank': 1,
@@ -108,7 +108,7 @@ class CuePredictorInput {
     return encoding[type] ?? 0;
   }
 
-  static int _encodeCueType(String? type) {
+  static int encodeCueType(String? type) {
     if (type == null || type.isEmpty) return 0;
     const encoding = {
       'none': 0,
@@ -176,7 +176,7 @@ abstract class ICuePredictor {
   bool get isLoaded;
   String get platformName;
   static const int inputFeatureCount = 23;  // Updated to 23 features
-  static const double threshold = 0.5;
+  static const double threshold = 0.3;  // Lowered from 0.5 to trigger cues earlier for aphasia therapy
   
   Future<void> loadModel();
   CuePredictionResult predict(CuePredictorInput input);

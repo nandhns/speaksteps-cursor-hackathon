@@ -108,6 +108,16 @@ class PatientReportTab extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
+          // Performance by Module (moved from details tab)
+          Text(
+            'Performance by Module',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 16),
+          _buildModulePerformanceCards(context, scores),
+          const SizedBox(height: 24),
           // Category Breakdown
           Text(
             'Breakdown by Category',
@@ -292,6 +302,158 @@ class PatientReportTab extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildModulePerformanceCards(BuildContext context, List<ExerciseScore> scores) {
+    final menulisScores = scores.where((s) => s.exerciseModule == 'Menulis').toList();
+    final kefahamanScores = scores.where((s) => s.exerciseModule == 'Kefahaman').toList();
+
+    if (menulisScores.isEmpty && kefahamanScores.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Center(
+            child: Text(
+              'No module performance data available yet',
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        if (menulisScores.isNotEmpty)
+          _buildModuleCard(context, 'Menulis (Writing)', menulisScores, Colors.blue),
+        if (menulisScores.isNotEmpty && kefahamanScores.isNotEmpty)
+          const SizedBox(height: 12),
+        if (kefahamanScores.isNotEmpty)
+          _buildModuleCard(context, 'Kefahaman (Comprehension)', kefahamanScores, Colors.purple),
+      ],
+    );
+  }
+
+  Widget _buildModuleCard(
+    BuildContext context,
+    String moduleName,
+    List<ExerciseScore> scores,
+    MaterialColor color,
+  ) {
+    final totalScores = scores.length;
+    final averageScore = scores.fold<double>(0, (sum, s) => sum + (s.score / s.maxScore * 100)) / totalScores;
+    final passingCount = scores.where((s) => s.score / s.maxScore >= 0.7).length;
+    final passingRate = (passingCount / totalScores * 100);
+    final uniqueExercises = scores.map((s) => s.exerciseId).toSet().length;
+
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  moduleName.contains('Writing') ? Icons.edit : Icons.hearing,
+                  color: color,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  moduleName,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: color.shade700,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildModuleStatItem(
+                    'Average Score',
+                    '${averageScore.toStringAsFixed(1)}%',
+                    Icons.trending_up,
+                    color,
+                  ),
+                ),
+                Expanded(
+                  child: _buildModuleStatItem(
+                    'Passing Rate',
+                    '${passingRate.toStringAsFixed(0)}%',
+                    Icons.check_circle,
+                    color,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildModuleStatItem(
+                    'Total Attempts',
+                    '$totalScores',
+                    Icons.assignment,
+                    color,
+                  ),
+                ),
+                Expanded(
+                  child: _buildModuleStatItem(
+                    'Exercises Tried',
+                    '$uniqueExercises',
+                    Icons.apps,
+                    color,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModuleStatItem(
+    String label,
+    String value,
+    IconData icon,
+    MaterialColor color,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: color.shade400),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: color.shade700,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -51,42 +51,46 @@ class CuePredictorWeb implements ICuePredictor {
   double _calculateProbability(CuePredictorInput input) {
     double prob = 0.0;
     
-    // Response time is the strongest predictor
-    // Matches: need_cue_next = (response_time > 30) OR (correct == 0)
+    // ===== CRITICAL FIX: correctBeforeCueFlag is the DOMINANT predictor (46% feature importance) =====
+    // If user already received a cue, probability is much higher they'll need another
+    if (input.correctBeforeCueFlag == 1) {
+      // User already received at least one cue
+      prob += 0.46; // This is the dominant feature from feature importance
+    }
+    
+    // Response time is the secondary predictor (after correctBeforeCueFlag)
+    // But also very important - long response times indicate difficulty
     if (input.responseTimeSeconds > 30) {
-      prob += 0.45;
+      prob += 0.35; // Strong signal they need help
     } else if (input.responseTimeSeconds > 20) {
-      prob += 0.25;
+      prob += 0.20;
     } else if (input.responseTimeSeconds > 15) {
-      prob += 0.15;
+      prob += 0.12;
     } else if (input.responseTimeSeconds > 10) {
-      prob += 0.08;
+      prob += 0.06;
     }
     
     // Difficulty factor
     if (input.difficultyFlag == 1) {
-      prob += 0.15;  // Hard items have lower base accuracy
+      prob += 0.08; // Hard items have lower base accuracy
     }
     
-    // Cue history suggests struggle
-    if (input.cueGiven == 1) {
-      prob += 0.05 + (input.cueStage * 0.02);
+    // Cue history suggests struggle (only applies if no cue given yet)
+    if (input.cueGiven == 0) {
+      prob += input.hintCount * 0.02;
     }
-    
-    // Hint count indicates progressive difficulty
-    prob += input.hintCount * 0.03;
     
     // Therapist level (higher level = more challenging content)
-    prob += (input.therapistAssignedLevel - 1) * 0.02;
+    prob += (input.therapistAssignedLevel - 1) * 0.01;
     
-    // Time of day factor (evening/night slightly higher)
+    // Time of day factor (evening/night slightly higher fatigue)
     if (input.timeEvening == 1 || input.timeNight == 1) {
-      prob += 0.03;
+      prob += 0.02;
     }
     
     // Add small random variation to simulate ML uncertainty
     final random = Random();
-    prob += (random.nextDouble() - 0.5) * 0.1;
+    prob += (random.nextDouble() - 0.5) * 0.05;
     
     // Clamp to valid probability range
     return prob.clamp(0.0, 1.0);

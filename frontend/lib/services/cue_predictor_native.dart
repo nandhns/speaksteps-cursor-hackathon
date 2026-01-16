@@ -28,7 +28,7 @@ class CuePredictorNative implements ICuePredictor {
       print('CuePredictorNative: Loading TFLite model...');
       
       // Load the optimized float16 model
-      _interpreter = await Interpreter.fromAsset('assets/model_float16.tflite');
+      _interpreter = await Interpreter.fromAsset('assets/ml/model_float16.tflite');
       
       // Verify input/output shapes
       final inputShape = _interpreter!.getInputTensor(0).shape;

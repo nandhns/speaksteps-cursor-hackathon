@@ -80,9 +80,8 @@ flutter:
 
   # TFLite model and other assets
   assets:
-    - assets/model.tflite
-    - assets/model_float16.tflite
     - images/
+    - assets/ml/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

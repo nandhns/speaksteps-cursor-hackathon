@@ -138,11 +138,11 @@ data['cat_clothing'] = (data['category'] == 'clothing').astype(int)
 data['cat_food'] = (data['category'] == 'food').astype(int)
 
 # NOW create target variable after all features are ready
-# Logic: User needs cue if they struggled and were wrong before, or already needed cue
+# Logic: User needs cue if they struggled BEFORE getting one (slow response or wrong answer)
+# This ensures: fast+correct answers don't always trigger cues, even if one was previously given
 data['need_cue_next'] = (
     ((data['response_time_seconds'] > 15) & (data['correct_before_cue_flag'] == 0)) |
-    ((data['correct'] == 0) & (data['correct_before_cue_flag'] == 0)) |
-    (data['cue_given'] == 1)
+    ((data['correct'] == 0) & (data['correct_before_cue_flag'] == 0))
 ).astype(int)
 
 print("✅ Features engineered!")
@@ -410,6 +410,85 @@ print(f"   - F1 Score: {f1:.2%}")
 print(f"   - AUC-ROC: {auc:.2%}")
 print("\n🎯 Your ML model is ready to use!")
 print("="*70)
+
+# ============================================================================
+# FEATURE IMPORTANCE ANALYSIS
+# ============================================================================
+print("\n🔍 Analyzing Feature Importance (Permutation-based)...")
+print("   This shows which patient response patterns matter most for cue prediction\n")
+
+from sklearn.inspection import permutation_importance
+from sklearn.base import BaseEstimator, ClassifierMixin
+
+# Wrap Keras model to work with sklearn's permutation_importance
+class KerasClassifierWrapper(BaseEstimator, ClassifierMixin):
+    def __init__(self, model):
+        self.model = model
+    
+    def fit(self, X, y):
+        # Already trained, just return self
+        return self
+    
+    def predict(self, X):
+        return (self.model.predict(X, verbose=0) > 0.5).astype(int).flatten()
+    
+    def score(self, X, y):
+        predictions = self.predict(X)
+        return accuracy_score(y, predictions)
+
+# Wrap the model
+wrapped_model = KerasClassifierWrapper(model)
+
+# Calculate permutation importance
+result = permutation_importance(
+    wrapped_model,
+    X_test_scaled, 
+    y_test, 
+    n_repeats=10, 
+    random_state=RANDOM_STATE,
+    scoring='accuracy'
+)
+
+# Create importance dataframe
+importance_df = pd.DataFrame({
+    'Feature': feature_columns,
+    'Importance': result.importances_mean,
+    'Std': result.importances_std
+}).sort_values('Importance', ascending=False)
+
+print("📊 TOP 10 MOST IMPORTANT FEATURES FOR CUE PREDICTION:")
+print("=" * 70)
+for idx, row in importance_df.head(10).iterrows():
+    print(f"{row['Feature']:30s} | Importance: {row['Importance']:.4f} ± {row['Std']:.4f}")
+
+print("\n" + "=" * 70)
+print("What this means:")
+print("  - Higher importance = more critical for predicting if patient needs cue")
+print("  - response_time: How quickly patient responds")
+print("  - correct_before_cue: Whether answer was correct BEFORE cue")
+print("  - difficulty: Difficulty level affects cue prediction")
+print("  - Category flags: Type of exercise (animals, body_parts, etc.)")
+print("=" * 70 + "\n")
+
+# Plot feature importance
+plt.figure(figsize=(12, 8))
+top_n = 15
+top_features = importance_df.head(top_n)
+plt.barh(range(len(top_features)), top_features['Importance'].values)
+plt.yticks(range(len(top_features)), top_features['Feature'].values)
+plt.xlabel('Importance Score')
+plt.title(f'Top {top_n} Features for Cue Prediction')
+plt.gca().invert_yaxis()  # Highest at top
+plt.tight_layout()
+plt.show()
+
+# Save feature importance to file
+importance_df.to_csv('feature_importance.csv', index=False)
+print(f"✅ Saved feature_importance.csv with all {len(importance_df)} features")
+
+# Also download it
+files.download('feature_importance.csv')
+print("✅ Downloaded feature_importance.csv")
 
 
 

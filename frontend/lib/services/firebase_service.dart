@@ -112,13 +112,36 @@ class FirebaseService {
   /// Get user data from Firestore
   Future<UserModel?> getUser(String userId) async {
     try {
-      print('📥 Fetching user from Firestore: $userId');
+      print('\n📥 Fetching user from Firestore: $userId');
       final doc = await _firestore.collection('users').doc(userId).get();
       if (doc.exists) {
         print('✅ User document found for: $userId');
         final userData = doc.data()!;
         print('   User data keys: ${userData.keys.toList()}');
-        return UserModel.fromMap(userData);
+        print('   Raw assignedModules data: ${userData['assignedModules']}');
+        print('   Type of assignedModules: ${userData['assignedModules'].runtimeType}');
+        
+        // Add extra debugging
+        if (userData['assignedModules'] != null) {
+          print('   assignedModules is NOT null');
+          if (userData['assignedModules'] is List) {
+            final list = userData['assignedModules'] as List;
+            print('   assignedModules IS a List with length: ${list.length}');
+            for (int i = 0; i < list.length; i++) {
+              print('     [$i] = ${list[i]} (type: ${list[i].runtimeType})');
+            }
+          } else {
+            print('   assignedModules is NOT a List, it is: ${userData['assignedModules'].runtimeType}');
+          }
+        } else {
+          print('   assignedModules IS null');
+        }
+        
+        print('📦 Calling UserModel.fromMap()...');
+        final user = UserModel.fromMap(userData);
+        print('✅ UserModel created successfully');
+        print('   Final assignedModules in UserModel: ${user.assignedModules}');
+        return user;
       }
       print('❌ User document NOT found for: $userId');
       return null;
@@ -171,9 +194,6 @@ class FirebaseService {
         }).toList();
         
         print('DEBUG: Exercise ${doc.id} has ${questions.length} questions');
-        if (questions.isNotEmpty) {
-          print('  First question: ${questions[0]['correctAnswer']}');
-        }
         
         // Add questions to exercise data
         exerciseData['id'] = doc.id;

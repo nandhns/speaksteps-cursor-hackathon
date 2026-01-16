@@ -222,31 +222,42 @@ class _ComprehensionExerciseScreenState
     };
     categoryName = categoryMap[categoryName] ?? categoryName;
 
-    final input = CuePredictorInput.fromSimple(
+    final input = CuePredictorInput(
       responseTimeSeconds: responseTime,
       cueGiven: _cueLevel > 0 ? 1 : 0,
       cueStage: _cueLevel,
       hintCount: _hintCount,
-      difficulty: widget.exercise.difficulty >= 3 ? 'hard' : 'easy',
-      isMobile: !kIsWeb && (Platform.isAndroid || Platform.isIOS),
-      therapistLevel: 3, // Default level
-      questionType: 'word_to_pic', // Comprehension exercise
-      cueType: _cueLevel == 0 ? 'none' : 
-               _cueLevel == 1 ? 'functional' : 
-               _cueLevel == 2 ? 'rhyming' : 
-               _cueLevel == 3 ? 'written_initial' :
-               _cueLevel == 4 ? 'spelling' :
-               _cueLevel == 5 ? 'sentence_completion' :
-               _cueLevel == 6 ? 'phonemic' : null,
-      timeOfDay: timeOfDay,
-      module: 'comprehension',
-      category: categoryName,
+      difficultyFlag: widget.exercise.difficulty >= 3 ? 1 : 0,
+      deviceMobileFlag: !kIsWeb && (Platform.isAndroid || Platform.isIOS) ? 1 : 0,
+      therapistAssignedLevel: 3,
+      questionTypeEncoded: CuePredictorInput.encodeQuestionType('word_to_pic'),
+      cueTypeEncoded: CuePredictorInput.encodeCueType(_cueLevel == 0 ? 'none' : 
+             _cueLevel == 1 ? 'functional' : 
+             _cueLevel == 2 ? 'rhyming' : 
+             _cueLevel == 3 ? 'written_initial' :
+             _cueLevel == 4 ? 'spelling' :
+             _cueLevel == 5 ? 'sentence_completion' :
+             _cueLevel == 6 ? 'phonemic' : null),
+      timeMorning: timeOfDay == 'morning' ? 1 : 0,
+      timeAfternoon: timeOfDay == 'afternoon' ? 1 : 0,
+      timeEvening: timeOfDay == 'evening' ? 1 : 0,
+      timeNight: timeOfDay == 'night' ? 1 : 0,
+      moduleComprehension: 1,
+      moduleWriting: 0,
+      catAnimals: categoryName == 'animals' ? 1 : 0,
+      catBodyParts: categoryName == 'body_parts' ? 1 : 0,
+      catClothing: categoryName == 'clothing' ? 1 : 0,
+      catFood: categoryName == 'food' ? 1 : 0,
+      cueSequenceNormalized: _cueLevel / 7.0,
+      exerciseDurationNormalized: (responseTime / 120.0).clamp(0.0, 1.0),
+      correctBeforeCueFlag: _cueLevel == 0 ? 0 : 1,
+      moduleDurationNormalized: (responseTime / 120.0).clamp(0.0, 1.0),
     );
 
     try {
       final prediction = _cuePredictor!.predict(input);
       
-      print('DEBUG: ML Prediction - probability: ${prediction.probability.toStringAsFixed(3)}, needCue: ${prediction.needCue}, responseTime: ${responseTime}s, currentLevel: $_cueLevel');
+      print('DEBUG: ML Prediction - probability: ${prediction.probability.toStringAsFixed(3)}, needCue: ${prediction.needCue}, responseTime: ${responseTime}s, currentLevel: $_cueLevel, correctBeforeCue: ${input.correctBeforeCueFlag}');
       
       // ML-based cue progression: Show next cue when ML predicts patient needs help
       // Enforce minimum time delays before showing cues
@@ -254,16 +265,16 @@ class _ComprehensionExerciseScreenState
         return; // ML says patient doesn't need help yet
       }
       
-      // Enforce minimum wait time before first cue (30 seconds)
-      if (_cueLevel == 0 && responseTime < 30) {
-        return; // Don't show first cue until at least 30 seconds
+      // Enforce minimum wait time before first cue (10 seconds - hierarchical timing)
+      if (_cueLevel == 0 && responseTime < 10) {
+        return; // Don't show first cue until at least 10 seconds
       }
       
-      // Enforce minimum gap between cues (20 seconds)
+      // Enforce minimum gap between cues (10 seconds - hierarchical timing)
       if (_lastCueShownAt != null) {
         final timeSinceLastCue = DateTime.now().difference(_lastCueShownAt!).inSeconds;
-        if (timeSinceLastCue < 20) {
-          return; // Wait at least 20 seconds between cues
+        if (timeSinceLastCue < 10) {
+          return; // Wait at least 10 seconds between cues
         }
       }
       
@@ -466,6 +477,22 @@ class _ComprehensionExerciseScreenState
 
   /// Build image widget with fallback to placeholder
   Widget _buildImageWidget(String item) {
+    // Check if item is already a full path (starts with "images/")
+    if (item.startsWith('images/')) {
+      // It's already a full asset path, use it directly
+      return Image.asset(
+        item,
+        width: 70,
+        height: 70,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          print('Error loading image from path: $item');
+          return _buildPlaceholder();
+        },
+      );
+    }
+    
+    // Otherwise, try to map it using ImageHelper
     final imagePath = ImageHelper.getImagePathFromCategory(
       widget.exercise.category,
       item,
@@ -571,6 +598,7 @@ class _ComprehensionExerciseScreenState
     setState(() => _isSubmitted = true);
     
     // Show feedback message
+    final strings = AppStrings(Localizations.localeOf(context).languageCode);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -583,8 +611,8 @@ class _ComprehensionExerciseScreenState
             Expanded(
               child: Text(
                 isCorrect 
-                    ? 'Correct! Well done! 🎉'
-                    : 'Incorrect. The correct answer is: ${currentQuestion.correctAnswer}',
+                    ? strings.wellDone
+                    : '${strings.incorrect}. ${strings.theCorrectAnswerWas}: ${currentQuestion.correctAnswer}',
                 style: const TextStyle(fontSize: 14),
               ),
             ),
@@ -650,6 +678,7 @@ class _ComprehensionExerciseScreenState
             final strings = AppStrings(Localizations.localeOf(context).languageCode);
             showDialog(
               context: context,
+              barrierDismissible: false,
               builder: (context) => AlertDialog(
                 title: Text(_correctAnswers == totalQuestions ? strings.excellent : strings.goodJob),
                 content: SingleChildScrollView(
@@ -692,6 +721,7 @@ class _ComprehensionExerciseScreenState
     final currentQuestion = _getCurrentQuestion();
     final totalQuestions = widget.exercise.questions.length;
     final questionNumber = _currentQuestionIndex + 1;
+    final strings = AppStrings(Localizations.localeOf(context).languageCode);
     // For easy level, show different category images
     final imageOptions = currentQuestion?.imageOptions ?? 
                         currentQuestion?.options ?? 
@@ -750,7 +780,7 @@ class _ComprehensionExerciseScreenState
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Instructions',
+                          strings.hint,
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.blue.shade700,
@@ -777,18 +807,32 @@ class _ComprehensionExerciseScreenState
                   child: Column(
                     children: [
                       Text(
-                        'Match this word:',
+                        strings.matchTheWord,
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                               color: Colors.grey.shade700,
                             ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        currentQuestion?.correctAnswer ?? widget.exercise.correctAnswer ?? '',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.purple.shade900,
-                            ),
+                      const SizedBox(height: 16),
+                      // Display the image to match
+                      Container(
+                        width: 150,
+                        height: 150,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.purple.shade300, width: 2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Image.asset(
+                          currentQuestion?.correctAnswer ?? widget.exercise.correctAnswer ?? '',
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Center(
+                              child: Text(
+                                'Image not found',
+                                style: TextStyle(color: Colors.grey.shade700),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ],
                   ),

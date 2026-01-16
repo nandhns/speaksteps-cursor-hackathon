@@ -217,6 +217,16 @@ class AppStrings {
   String get greatJobExclaim => isMalay ? 'Kerja Hebat! 🎉' : 'Great Job! 🎉';
   String get exerciseCompletedScore => isMalay ? 'Latihan selesai! Markah' : 'Exercise completed! Score';
   String get pleaseSelectImage => isMalay ? 'Sila pilih gambar' : 'Please select an image';
+  
+  // ==================== CHANGE PASSWORD ====================
+  String get changePassword => isMalay ? 'Tukar Kata Laluan' : 'Change Password';
+  String get setNewPassword => isMalay ? 'Tetapkan kata laluan baharu' : 'Set a new password';
+  String get changePasswordMessage => isMalay ? 'Sila tukar kata laluan sementara anda sebelum menggunakan SpeakSteps.' : 'Please change your temporary password before using SpeakSteps.';
+  String get confirmPasswordLabel => isMalay ? 'Sahkan Kata Laluan' : 'Confirm password';
+  String get pleaseConfirmPassword => isMalay ? 'Sila sahkan kata laluan anda' : 'Please confirm your password';
+  String get passwordsDoNotMatch => isMalay ? 'Kata laluan tidak sepadan' : 'Passwords do not match';
+  String get saveAndContinue => isMalay ? 'Simpan dan Teruskan' : 'Save and continue';
+  String get forSecurityUpdateTemporary => isMalay ? 'Untuk keselamatan, kemaskini kata laluan sementara anda sekarang.' : 'For security, update your temporary password now.';
 }
 
 /// Extension to easily get strings from BuildContext

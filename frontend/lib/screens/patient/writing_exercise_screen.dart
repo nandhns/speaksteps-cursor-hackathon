@@ -245,25 +245,36 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
         currentCueType = null;
     }
 
-    final input = CuePredictorInput.fromSimple(
+    final input = CuePredictorInput(
       responseTimeSeconds: responseTime,
       cueGiven: _cueLevel > 0 ? 1 : 0,
       cueStage: _cueLevel,
       hintCount: _hintCount,
-      difficulty: widget.exercise.difficulty >= 3 ? 'hard' : 'easy',
-      isMobile: !kIsWeb && (Platform.isAndroid || Platform.isIOS),
-      therapistLevel: 3, // Default level
-      questionType: 'pic_to_word', // Writing exercise
-      cueType: currentCueType,
-      timeOfDay: timeOfDay,
-      module: 'writing',
-      category: categoryName,
+      difficultyFlag: widget.exercise.difficulty >= 3 ? 1 : 0,
+      deviceMobileFlag: !kIsWeb && (Platform.isAndroid || Platform.isIOS) ? 1 : 0,
+      therapistAssignedLevel: 3,
+      questionTypeEncoded: CuePredictorInput.encodeQuestionType('pic_to_word'),
+      cueTypeEncoded: CuePredictorInput.encodeCueType(currentCueType),
+      timeMorning: timeOfDay == 'morning' ? 1 : 0,
+      timeAfternoon: timeOfDay == 'afternoon' ? 1 : 0,
+      timeEvening: timeOfDay == 'evening' ? 1 : 0,
+      timeNight: timeOfDay == 'night' ? 1 : 0,
+      moduleComprehension: 0,
+      moduleWriting: 1,
+      catAnimals: categoryName == 'animals' ? 1 : 0,
+      catBodyParts: categoryName == 'body_parts' ? 1 : 0,
+      catClothing: categoryName == 'clothing' ? 1 : 0,
+      catFood: categoryName == 'food' ? 1 : 0,
+      cueSequenceNormalized: _cueLevel / 7.0, // Normalize by max cue level
+      exerciseDurationNormalized: (responseTime / 120.0).clamp(0.0, 1.0), // Normalize by typical max time
+      correctBeforeCueFlag: _cueLevel == 0 ? 0 : 1, // Flag: was user correct BEFORE any cue? 0=no cue yet (unanswered), 1=already received cue
+      moduleDurationNormalized: (responseTime / 120.0).clamp(0.0, 1.0),
     );
 
     try {
       final prediction = _cuePredictor!.predict(input);
       
-      print('DEBUG: ML Prediction - probability: ${prediction.probability.toStringAsFixed(3)}, needCue: ${prediction.needCue}, responseTime: ${responseTime}s, currentLevel: $_cueLevel');
+      print('DEBUG: ML Prediction - probability: ${prediction.probability.toStringAsFixed(3)}, needCue: ${prediction.needCue}, responseTime: ${responseTime}s, currentLevel: $_cueLevel, correctBeforeCue: ${input.correctBeforeCueFlag}');
       
       // ML-based cue progression: Show next cue when ML predicts patient needs help
       // Enforce minimum time delays before showing cues
@@ -271,16 +282,16 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
         return; // ML says patient doesn't need help yet
       }
       
-      // Enforce minimum wait time before first cue (30 seconds)
-      if (_cueLevel == 0 && responseTime < 30) {
-        return; // Don't show first cue until at least 30 seconds
+      // Enforce minimum wait time before first cue (10 seconds - hierarchical timing)
+      if (_cueLevel == 0 && responseTime < 10) {
+        return; // Don't show first cue until at least 10 seconds
       }
       
-      // Enforce minimum gap between cues (20 seconds)
+      // Enforce minimum gap between cues (10 seconds - hierarchical timing)
       if (_lastCueShownAt != null) {
         final timeSinceLastCue = DateTime.now().difference(_lastCueShownAt!).inSeconds;
-        if (timeSinceLastCue < 20) {
-          return; // Wait at least 20 seconds between cues
+        if (timeSinceLastCue < 10) {
+          return; // Wait at least 10 seconds between cues
         }
       }
       
@@ -578,6 +589,7 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
     setState(() => _isSubmitted = true);
     
     // Show feedback message
+    final strings = AppStrings(Localizations.localeOf(context).languageCode);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -590,8 +602,8 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
             Expanded(
               child: Text(
                 isCorrect 
-                    ? 'Correct! Well done! 🎉'
-                    : 'Incorrect. The correct answer is: ${currentQuestion.correctAnswer}',
+                    ? strings.wellDone
+                    : '${strings.incorrect}. ${strings.theCorrectAnswerWas}: ${currentQuestion.correctAnswer}',
                 style: const TextStyle(fontSize: 14),
               ),
             ),
@@ -657,6 +669,7 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
             final strings = AppStrings(Localizations.localeOf(context).languageCode);
             showDialog(
               context: context,
+              barrierDismissible: false,
               builder: (context) => AlertDialog(
                 title: Text(_correctAnswers == totalQuestions ? strings.excellent : strings.goodJob),
                 content: SingleChildScrollView(
@@ -680,7 +693,9 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
                 actions: [
                   TextButton(
                     onPressed: () {
+                      // Pop dialog first
                       Navigator.of(context).pop();
+                      // Pop exercise screen and return to category
                       Navigator.of(context).pop();
                     },
                     child: Text(strings.done),
@@ -700,6 +715,7 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
     final totalQuestions = widget.exercise.questions.length;
     final questionNumber = _currentQuestionIndex + 1;
     final bool isExerciseComplete = _currentQuestionIndex >= totalQuestions;
+    final strings = AppStrings(Localizations.localeOf(context).languageCode);
     
     return PopScope(
       canPop: isExerciseComplete,
@@ -766,7 +782,7 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Instructions',
+                          strings.hint,
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.blue.shade700,
@@ -802,7 +818,7 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
             ),
             const SizedBox(height: 32),
             Text(
-              'Type the word you see:',
+              strings.typeYourAnswer,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -812,8 +828,8 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
               controller: _answerController,
               enabled: !_isSubmitted,
               decoration: InputDecoration(
-                labelText: 'Your answer',
-                hintText: 'Type here...',
+                labelText: strings.enterAnswer,
+                hintText: strings.enterAnswer,
                 border: const OutlineInputBorder(),
                 prefixIcon: const Icon(Icons.edit),
                 suffixIcon: _answerController.text.isNotEmpty

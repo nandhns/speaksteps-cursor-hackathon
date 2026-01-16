@@ -14,6 +14,7 @@ import 'cue_predictor_interface.dart';
 // - On web: imports cue_predictor_native_web.dart stub (which is just CuePredictorWeb)
 import 'cue_predictor_native.dart'
     if (dart.library.html) 'cue_predictor_native_web.dart';
+import 'cue_predictor_web.dart';
 
 // Export the shared types
 export 'cue_predictor_interface.dart';
@@ -21,10 +22,13 @@ export 'cue_predictor_interface.dart';
 /// Factory to create the appropriate predictor for the current platform
 class CuePredictorFactory {
   static ICuePredictor create() {
-    // CuePredictorNative resolves to:
-    // - Real TFLite implementation on native platforms
-    // - CuePredictorWeb stub on web platform
-    return CuePredictorNative();
+    // TEMPORARY FIX: Use rule-based predictor on ALL platforms
+    // The TFLite model is returning 0.0 probability - needs retraining
+    print('CuePredictorFactory: Using rule-based predictor (TFLite model issue)');
+    return CuePredictorWeb();
+    
+    // Original code (commented out until TFLite model is fixed):
+    // return CuePredictorNative();
   }
 }
 

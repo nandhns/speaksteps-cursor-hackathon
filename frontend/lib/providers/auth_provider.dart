@@ -29,6 +29,7 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     _currentUser = await _service.getUser(userId);
+    print('DEBUG AuthProvider: Loaded user with assignedModules: ${_currentUser?.assignedModules}');
     _isLoading = false;
     notifyListeners();
   }

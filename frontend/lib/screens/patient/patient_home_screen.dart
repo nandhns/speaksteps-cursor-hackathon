@@ -6,6 +6,7 @@ import '../../providers/language_provider.dart';
 import '../../services/app_service.dart';
 import '../../models/exercise_model.dart';
 import '../../models/exercise_score_model.dart';
+import '../../models/user_model.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/ui/app_card.dart';
 import '../../widgets/language_selector.dart';
@@ -33,7 +34,21 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
   void initState() {
     super.initState();
     _service = ServiceFactory.createService();
-    _loadExercises();
+    
+    // Refresh user data on screen load to ensure we have latest modules from Firestore
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = context.read<app_auth.AuthProvider>();
+      final userId = authProvider.currentUser?.id;
+      if (userId != null) {
+        print('DEBUG: Refreshing user data on initState, userId: $userId');
+        authProvider.loadUser(userId).then((_) {
+          print('DEBUG: User data refreshed');
+          _loadExercises();
+        });
+      } else {
+        _loadExercises();
+      }
+    });
     
     // Initialize language provider with app service after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -410,7 +425,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
           
           // Main content based on selection state
           if (_selectedExerciseType == null)
-            _buildExerciseTypeSelection()
+            _buildExerciseTypeSelection(user)
           else if (_selectedCategory == null)
             _buildCategorySelection()
           else
@@ -485,9 +500,66 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
     );
   }
 
-  Widget _buildExerciseTypeSelection() {
+  Widget _buildExerciseTypeSelection(user) {
     final lang = context.watch<LanguageProvider>().locale.languageCode;
     final strings = AppStrings(lang);
+    
+    // Determine which exercise types to show based on assigned modules
+    final assignedModules = user?.assignedModules ?? [];
+    print('DEBUG: assignedModules = $assignedModules');
+    print('DEBUG: assignedModules.isEmpty = ${assignedModules.isEmpty}');
+    print('DEBUG: assignedModules.length = ${assignedModules.length}');
+    if (assignedModules.isNotEmpty) {
+      assignedModules.forEach((m) => print('DEBUG: Module in list: $m (type: ${m.runtimeType})'));
+    }
+    
+    // If no modules are assigned, show all modules (allowing access to all content)
+    // If modules are assigned, only show those modules
+    final hasWriting = assignedModules.isEmpty || assignedModules.contains(TherapyModule.writing);
+    final hasComprehension = assignedModules.isEmpty || assignedModules.contains(TherapyModule.comprehension);
+    print('DEBUG: hasWriting = $hasWriting, hasComprehension = $hasComprehension');
+    
+    // If only one module is assigned, auto-select it and skip to category selection
+    if (assignedModules.length == 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _selectedExerciseType == null) {
+          setState(() {
+            if (assignedModules.contains(TherapyModule.writing)) {
+              _selectedExerciseType = ExerciseType.writing;
+            } else if (assignedModules.contains(TherapyModule.comprehension)) {
+              _selectedExerciseType = ExerciseType.comprehension;
+            }
+          });
+        }
+      });
+    }
+    
+    final cards = <Widget>[];
+    
+    if (hasWriting) {
+      cards.add(_ExerciseTypeCard(
+        icon: Icons.edit_outlined,
+        emoji: '✍️',
+        title: strings.writing,
+        description: strings.writingDescription,
+        color: AppTheme.primaryPurple,
+        onTap: () => setState(() => _selectedExerciseType = ExerciseType.writing),
+      ));
+    }
+    
+    if (hasComprehension) {
+      if (cards.isNotEmpty) {
+        cards.add(const SizedBox(height: AppTheme.spacingMd));
+      }
+      cards.add(_ExerciseTypeCard(
+        icon: Icons.headphones_outlined,
+        emoji: '👂',
+        title: strings.comprehension,
+        description: strings.comprehensionDescription,
+        color: const Color(0xFF0891B2),
+        onTap: () => setState(() => _selectedExerciseType = ExerciseType.comprehension),
+      ));
+    }
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -497,23 +569,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: AppTheme.spacingLg),
-        _ExerciseTypeCard(
-          icon: Icons.edit_outlined,
-          emoji: '✍️',
-          title: strings.writing,
-          description: strings.writingDescription,
-          color: AppTheme.primaryPurple,
-          onTap: () => setState(() => _selectedExerciseType = ExerciseType.writing),
-        ),
-        const SizedBox(height: AppTheme.spacingMd),
-        _ExerciseTypeCard(
-          icon: Icons.headphones_outlined,
-          emoji: '👂',
-          title: strings.comprehension,
-          description: strings.comprehensionDescription,
-          color: const Color(0xFF0891B2),
-          onTap: () => setState(() => _selectedExerciseType = ExerciseType.comprehension),
-        ),
+        ...cards,
       ],
     );
   }

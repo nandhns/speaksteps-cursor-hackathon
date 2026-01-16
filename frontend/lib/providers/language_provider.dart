@@ -6,7 +6,7 @@ import '../services/app_service.dart';
 class LanguageProvider extends ChangeNotifier {
   static const String _languageKey = 'app_language';
   
-  Locale _locale = const Locale('en'); // Default to English
+  Locale _locale = const Locale('ms'); // Default to Bahasa Melayu
   AppService? _appService;
   String? _userId;
   

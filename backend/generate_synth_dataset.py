@@ -67,19 +67,30 @@ random.seed(RANDOM_SEED)
 NUM_ROWS = 5000
 NUM_USERS = 50
 NUM_SESSIONS_PER_USER = 20
-QUESTIONS_PER_EXERCISE = 5  # Group questions into exercises
+QUESTIONS_PER_EXERCISE = 1  # Each row is one question
 
-# Define vocabulary items per category
-ITEMS_BY_CATEGORY = {
-    "animals": ["dog", "cat", "bird", "fish", "horse", "cow", "pig", "sheep", "lion", "elephant", 
-                "tiger", "bear", "rabbit", "duck", "chicken", "frog", "snake", "turtle", "monkey", "zebra"],
-    "body_parts": ["hand", "foot", "arm", "leg", "head", "eye", "ear", "nose", "mouth", "finger",
-                   "toe", "knee", "elbow", "shoulder", "neck", "back", "stomach", "chest", "hair", "tooth"],
-    "clothing": ["shirt", "pants", "dress", "shoe", "hat", "sock", "jacket", "coat", "glove", "scarf",
-                 "belt", "tie", "skirt", "shorts", "sweater", "boot", "sandal", "cap", "vest", "blouse"],
-    "food": ["apple", "bread", "milk", "egg", "rice", "meat", "fish", "cheese", "banana", "orange",
-             "carrot", "potato", "tomato", "chicken", "soup", "salad", "cake", "cookie", "water", "juice"]
+# Load actual exercises from exercises.csv
+print("Loading exercises from exercises.csv...")
+exercises_df = pd.read_csv('data/exercises.csv')
+
+# Map category names for internal use
+category_mapping = {
+    'haiwan': 'animals',
+    'makanan': 'food',
+    'anggota_badan': 'body_parts',
+    'kata_kerja': 'verbs'
 }
+exercises_df['category_mapped'] = exercises_df['category'].map(category_mapping)
+
+# Group exercises by category and difficulty for easier selection
+EXERCISES_BY_CATEGORY = {}
+for category in exercises_df['category_mapped'].unique():
+    EXERCISES_BY_CATEGORY[category] = exercises_df[exercises_df['category_mapped'] == category].to_dict('records')
+
+print(f"Loaded {len(exercises_df)} exercises")
+print(f"   Categories: {list(EXERCISES_BY_CATEGORY.keys())}")
+for cat, exs in EXERCISES_BY_CATEGORY.items():
+    print(f"   - {cat}: {len(exs)} exercises")
 
 # Modules and question types per module
 MODULES = ["writing", "comprehension"]
@@ -140,13 +151,8 @@ def calculate_correct_probability(difficulty, cue_given, cue_stage, cue_type):
     
     return base_prob
 
-def generate_wrong_answer(correct_answer, category):
-    """Generate a plausible wrong answer from the same category."""
-    alternatives = [item for item in ITEMS_BY_CATEGORY[category] if item != correct_answer]
-    return random.choice(alternatives) if alternatives else correct_answer + "_wrong"
-
 def generate_dataset():
-    """Generate the synthetic dataset with exercise-level metadata."""
+    """Generate the synthetic dataset using REAL exercises from exercises.csv."""
     data = []
     
     # Pre-generate user and session IDs
@@ -172,7 +178,7 @@ def generate_dataset():
     # Track cue sequences within each exercise
     exercise_cue_counts = {}  # exercise_id -> number of cues given so far
     
-    exercise_id = 0
+    exercise_counter = 0
     
     for i in range(NUM_ROWS):
         # Select user
@@ -192,34 +198,34 @@ def generate_dataset():
         
         session_id = current_session[user_id]
         
-        # Balance across modules, categories, difficulties
+        # Balance across modules
         module = MODULES[i % len(MODULES)]
-        category = list(ITEMS_BY_CATEGORY.keys())[i % len(ITEMS_BY_CATEGORY)]
-        difficulty = DIFFICULTIES[i % len(DIFFICULTIES)]
         
         # Track module start time per session
         if current_module_per_session.get(session_id) != module:
             current_module_per_session[session_id] = module
             module_start_times[f"{session_id}_{module}"] = session_start_times[user_id] + timedelta(seconds=i * 30)
         
-        # Manage exercises (group QUESTIONS_PER_EXERCISE questions per exercise)
-        exercise_key = f"{user_id}_{session_id}_{module}_{category}_{difficulty}"
-        if exercise_key not in current_exercise or (i % QUESTIONS_PER_EXERCISE == 0 and i > 0):
+        # Select a real exercise from exercises.csv
+        module_exercises = exercises_df[exercises_df['module'] == module]
+        if len(module_exercises) == 0:
+            continue
+        
+        selected_exercise = module_exercises.sample(1).iloc[0]
+        exercise_id = selected_exercise['exercise_id']
+        question_id = selected_exercise['question_id']
+        exercise_name = selected_exercise['title']
+        category = selected_exercise['category_mapped']
+        difficulty = selected_exercise['difficulty']
+        question_type = selected_exercise['question_type']
+        stimulus_value = selected_exercise['stimulus_value']
+        correct_answer = selected_exercise['correct_answer']
+        
+        # Manage exercises (group by real exercise_id)
+        if exercise_id not in exercise_start_times:
             user_exercise_count[user_id] += 1
-            exercise_id += 1
-            current_exercise[exercise_key] = exercise_id
             exercise_start_times[exercise_id] = session_start_times[user_id] + timedelta(seconds=i * 30 + random.randint(0, 10))
             exercise_cue_counts[exercise_id] = 0
-        
-        ex_id = current_exercise[exercise_key]
-        
-        # Generate exercise name
-        exercise_name = f"{module.capitalize()}: {category.replace('_', ' ').title()} {difficulty.capitalize()} #{user_exercise_count[user_id]}"
-        
-        # Select item and question type
-        item = random.choice(ITEMS_BY_CATEGORY[category])
-        question_type = random.choice(QUESTION_TYPES[module])
-        item_image_filename = f"{category}/{item}.png"
         
         # Decide if cue is given
         cue_probability = 0.3 if difficulty == "easy" else 0.55
@@ -236,8 +242,8 @@ def generate_dataset():
             hint_count = random.randint(1, cue_stage)
             
             # Increment cue sequence counter for this exercise
-            exercise_cue_counts[ex_id] += 1
-            cue_sequence_number = exercise_cue_counts[ex_id]
+            exercise_cue_counts[exercise_id] += 1
+            cue_sequence_number = exercise_cue_counts[exercise_id]
             
             # After cue, correctness improves based on cue effectiveness
             if correct_before_cue == 0:
@@ -258,24 +264,26 @@ def generate_dataset():
         response_time = round(generate_response_time(difficulty, cue_given, cue_stage), 2)
         
         # Generate timestamps
-        presented_at = exercise_start_times[ex_id] + timedelta(seconds=i * 15 + random.randint(0, 5))
+        presented_at = exercise_start_times[exercise_id] + timedelta(seconds=i * 15 + random.randint(0, 5))
         response_at = presented_at + timedelta(seconds=response_time)
         created_at = response_at + timedelta(seconds=random.uniform(0.1, 2.0))
         
         # Exercise end time (updated on each question in exercise)
         exercise_end_time = response_at
-        exercise_duration = (exercise_end_time - exercise_start_times[ex_id]).total_seconds()
+        exercise_duration = (exercise_end_time - exercise_start_times[exercise_id]).total_seconds()
         
         # Module end time (updated per session/module combo)
         module_key = f"{session_id}_{module}"
         module_end_time = response_at
         
-        # Generate answers
-        correct_answer = item
+        # Generate answers using REAL correct answer from exercise
         if correct:
             user_answer = correct_answer
         else:
-            user_answer = generate_wrong_answer(correct_answer, category)
+            # Generate a wrong answer from category
+            category_items = [ex['correct_answer'] for ex in EXERCISES_BY_CATEGORY.get(category, [])]
+            alternatives = [item for item in category_items if item != correct_answer]
+            user_answer = random.choice(alternatives) if alternatives else correct_answer + "_wrong"
         
         # Device type
         if random.random() < 0.85:
@@ -283,22 +291,22 @@ def generate_dataset():
         else:
             device_type = random.choice(DEVICE_TYPES)
         
-        # Build row with exercise and module metadata
+        # Build row with REAL exercise data from exercises.csv
         row = {
-            "question_id": f"Q_{i+1:05d}",
-            "exercise_id": f"EX_{module.upper()[:3]}_{category.upper()[:3]}_{difficulty.upper()[:1]}_{ex_id:03d}",
-            "exercise_name": exercise_name,
-            "exercise_start_at_iso": exercise_start_times[ex_id].isoformat(),
+            "question_id": question_id,  # REAL question_id from exercises.csv
+            "exercise_id": exercise_id,  # REAL exercise_id from exercises.csv
+            "exercise_name": exercise_name,  # REAL exercise name from exercises.csv
+            "exercise_start_at_iso": exercise_start_times[exercise_id].isoformat(),
             "exercise_end_at_iso": exercise_end_time.isoformat(),
             "exercise_duration_seconds": round(exercise_duration, 2),
             "module_start_at_iso": module_start_times.get(module_key, session_start_times[user_id]).isoformat(),
             "module_end_at_iso": module_end_time.isoformat(),
             "module": module,
             "category": category,
-            "item": item,
-            "item_image_filename": item_image_filename,
+            "item": correct_answer,  # REAL item from exercises.csv
+            "item_image_filename": stimulus_value,  # REAL image path from exercises.csv
             "difficulty_label": difficulty,
-            "question_type": question_type,
+            "question_type": question_type,  # REAL question type from exercises.csv
             "presented_at_iso": presented_at.isoformat(),
             "response_at_iso": response_at.isoformat(),
             "response_time_seconds": response_time,
@@ -399,8 +407,8 @@ if __name__ == "__main__":
     # Generate dataset
     df = generate_dataset()
     
-    # Save to CSV
-    output_file = "synth_speaksteps.csv"
+    # Save to CSV in data directory
+    output_file = "data/synth_speaksteps.csv"
     df.to_csv(output_file, index=False)
     print(f"\nDataset saved to: {output_file}")
     
