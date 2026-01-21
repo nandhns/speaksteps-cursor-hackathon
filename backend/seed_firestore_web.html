@@ -75,6 +75,9 @@
             <button id="createTherapistBtn" class="btn btn-secondary" onclick="createTherapist()">
                 👨‍⚕️ Create Therapist Account
             </button>
+            <button id="createTherapist2Btn" class="btn btn-secondary" onclick="createTherapist2()">
+                👨‍⚕️ Create Therapist 2 Account
+            </button>
             <button id="createPatientsBtn" class="btn btn-secondary" onclick="createPatients()">
                 🧑‍🤝‍🧑 Create Patient Accounts
             </button>
@@ -88,7 +91,8 @@
 
         <div class="credentials">
             <h3>📝 Test Credentials (after seeding):</h3>
-            <p><strong>Therapist:</strong> <code>therapist@speaksteps.com</code> / <code>Therapist123!</code></p>
+            <p><strong>Therapist 1:</strong> <code>therapist@speaksteps.com</code> / <code>Therapist123!</code></p>
+            <p><strong>Therapist 2:</strong> <code>therapist2@speaksteps.com</code> / <code>Therapist2123!</code></p>
             <p><strong>Patient 1:</strong> <code>john.patient@speaksteps.com</code> / <code>Patient123!</code></p>
             <p><strong>Patient 2:</strong> <code>emma.patient@speaksteps.com</code> / <code>Patient123!</code></p>
             <p><strong>Patient 3:</strong> <code>michael.patient@speaksteps.com</code> / <code>Patient123!</code></p>
@@ -510,6 +514,13 @@
             role: 'therapist',
         };
 
+        const therapist2Data = {
+            email: 'therapist2@speaksteps.com',
+            password: 'Therapist2123!',
+            name: 'Dr. Sarah Johnson',
+            role: 'therapist',
+        };
+
         const patientsData = [
             {
                 email: 'john.patient@speaksteps.com',
@@ -591,6 +602,43 @@
             }
             
             document.getElementById('createTherapistBtn').disabled = false;
+        };
+
+        window.createTherapist2 = async function() {
+            log('👨‍⚕️ Creating therapist 2 account...', 'info');
+            document.getElementById('createTherapist2Btn').disabled = true;
+            
+            try {
+                const userCredential = await createUserWithEmailAndPassword(
+                    auth, 
+                    therapist2Data.email, 
+                    therapist2Data.password
+                );
+                
+                const userData = {
+                    id: userCredential.user.uid,
+                    email: therapist2Data.email,
+                    name: therapist2Data.name,
+                    role: 'therapist',
+                    createdAt: new Date().toISOString(),
+                };
+                
+                await setDoc(doc(db, 'users', userCredential.user.uid), userData);
+                log(`  ✓ Created therapist: ${therapist2Data.name}`, 'success');
+                log(`    Email: ${therapist2Data.email}`, 'info');
+                log(`    Password: ${therapist2Data.password}`, 'info');
+                log('✅ Therapist 2 account created!', 'success');
+            } catch (error) {
+                if (error.code === 'auth/email-already-in-use') {
+                    log('ℹ️ Therapist 2 account already exists. Updating password...', 'info');
+                    // Account exists but password might be wrong, need to manually reset
+                    log('⚠️  To reset password: Go to Firebase Console > Authentication > Users > therapist2@speaksteps.com > Reset Password', 'error');
+                } else {
+                    log(`❌ Error creating therapist 2: ${error.message}`, 'error');
+                }
+            }
+            
+            document.getElementById('createTherapist2Btn').disabled = false;
         };
 
         window.createPatients = async function() {

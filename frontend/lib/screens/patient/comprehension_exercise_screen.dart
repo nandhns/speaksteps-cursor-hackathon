@@ -56,6 +56,12 @@ class _ComprehensionExerciseScreenState
   late String _sessionId;
   late AppService _appService;
   final List<QuestionResponse> _questionResponses = [];
+  
+  // Tracking for 24-feature ML model: rolling window features
+  final List<double> _responseTimes = [];        // Track all response times for rolling avg
+  final List<int> _correctnessHistory = [];      // Track all correctness (0/1) for accuracy calc
+  int _totalQuestionsInSession = 0;              // Total questions in this exercise
+  int _cumulativeHints = 0;                      // Total hints used in session
 
   @override
   void initState() {
@@ -147,6 +153,91 @@ class _ComprehensionExerciseScreenState
     }
   }
 
+  /// ============================================================================
+  /// 24-FEATURE ML MODEL HELPERS
+  /// ============================================================================
+
+  /// Calculate rolling average of last N response times
+  double _getResponseTimeRollingAvg({int windowSize = 5}) {
+    if (_responseTimes.isEmpty) return 0.0;
+    
+    final startIndex = (_responseTimes.length > windowSize) 
+        ? _responseTimes.length - windowSize 
+        : 0;
+    final recentTimes = _responseTimes.sublist(startIndex);
+    
+    if (recentTimes.isEmpty) return 0.0;
+    final sum = recentTimes.fold<double>(0, (a, b) => a + b);
+    return sum / recentTimes.length;
+  }
+
+  /// Calculate hints used ratio (normalized by typical max of 3 hints per question)
+  double _getHintsUsedRatio() {
+    if (_totalQuestionsInSession <= 0) return 0.0;
+    final ratio = _cumulativeHints / _totalQuestionsInSession;
+    return (ratio / 3.0).clamp(0.0, 1.0); // Normalize: max ~3 hints/question
+  }
+
+  /// Calculate normalized consecutive incorrect streak (0-1)
+  double _getConsecutiveIncorrect() {
+    if (_correctnessHistory.isEmpty) return 0.0;
+    
+    // Count consecutive zeros (incorrect) from the end
+    int streak = 0;
+    for (int i = _correctnessHistory.length - 1; i >= 0; i--) {
+      if (_correctnessHistory[i] == 0) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    
+    // Normalize by max typical streak (5 questions)
+    return (streak / 5.0).clamp(0.0, 1.0);
+  }
+
+  /// Calculate normalized consecutive correct streak (0-1)
+  double _getConsecutiveCorrect() {
+    if (_correctnessHistory.isEmpty) return 0.0;
+    
+    // Count consecutive ones (correct) from the end
+    int streak = 0;
+    for (int i = _correctnessHistory.length - 1; i >= 0; i--) {
+      if (_correctnessHistory[i] == 1) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    
+    // Normalize by max typical streak (5 questions)
+    return (streak / 5.0).clamp(0.0, 1.0);
+  }
+
+  /// Calculate session progress ratio (0-1)
+  double _getSessionProgressRatio() {
+    if (_totalQuestionsInSession <= 0) return 0.0;
+    return (_currentQuestionIndex / _totalQuestionsInSession).clamp(0.0, 1.0);
+  }
+
+  /// Calculate recent accuracy rate (last 5 questions, default 0.5 if none answered)
+  double _getRecentAccuracyRate({int windowSize = 5}) {
+    if (_correctnessHistory.isEmpty) return 0.5; // Default before any answers
+    
+    final startIndex = (_correctnessHistory.length > windowSize) 
+        ? _correctnessHistory.length - windowSize 
+        : 0;
+    final recentCorrectness = _correctnessHistory.sublist(startIndex);
+    
+    if (recentCorrectness.isEmpty) return 0.5;
+    final correct = recentCorrectness.fold<int>(0, (a, b) => a + b);
+    return correct / recentCorrectness.length;
+  }
+
+  /// ============================================================================
+  /// ML PREDICTION & CUE DISPLAY
+  /// ============================================================================
+
   @override
 
   void dispose() {
@@ -223,10 +314,19 @@ class _ComprehensionExerciseScreenState
     categoryName = categoryMap[categoryName] ?? categoryName;
 
     final input = CuePredictorInput(
+      // Performance features
       responseTimeSeconds: responseTime,
-      cueGiven: _cueLevel > 0 ? 1 : 0,
-      cueStage: _cueLevel,
+      responseTimeRollingAvg: _getResponseTimeRollingAvg(),
+      
+      // Hint usage features
       hintCount: _hintCount,
+      hintsUsedRatio: _getHintsUsedRatio(),
+      
+      // Streak/consistency features
+      consecutiveIncorrect: _getConsecutiveIncorrect(),
+      consecutiveCorrect: _getConsecutiveCorrect(),
+      
+      // Question difficulty and context
       difficultyFlag: widget.exercise.difficulty >= 3 ? 1 : 0,
       deviceMobileFlag: !kIsWeb && (Platform.isAndroid || Platform.isIOS) ? 1 : 0,
       therapistAssignedLevel: 3,
@@ -238,26 +338,33 @@ class _ComprehensionExerciseScreenState
              _cueLevel == 4 ? 'spelling' :
              _cueLevel == 5 ? 'sentence_completion' :
              _cueLevel == 6 ? 'phonemic' : null),
+      
+      // Time of day (one-hot encoded)
       timeMorning: timeOfDay == 'morning' ? 1 : 0,
       timeAfternoon: timeOfDay == 'afternoon' ? 1 : 0,
       timeEvening: timeOfDay == 'evening' ? 1 : 0,
       timeNight: timeOfDay == 'night' ? 1 : 0,
+      
+      // Module type (one-hot encoded)
       moduleComprehension: 1,
       moduleWriting: 0,
+      
+      // Category (one-hot encoded)
       catAnimals: categoryName == 'animals' ? 1 : 0,
       catBodyParts: categoryName == 'body_parts' ? 1 : 0,
       catClothing: categoryName == 'clothing' ? 1 : 0,
       catFood: categoryName == 'food' ? 1 : 0,
-      cueSequenceNormalized: _cueLevel / 7.0,
-      exerciseDurationNormalized: (responseTime / 120.0).clamp(0.0, 1.0),
-      correctBeforeCueFlag: _cueLevel == 0 ? 0 : 1,
-      moduleDurationNormalized: (responseTime / 120.0).clamp(0.0, 1.0),
+      
+      // Session/exercise features
+      exerciseDurationNormalized: (responseTime / 300.0).clamp(0.0, 1.0), // 300s typical max
+      sessionProgressRatio: _getSessionProgressRatio(),
+      recentAccuracyRate: _getRecentAccuracyRate(),
     );
 
     try {
       final prediction = _cuePredictor!.predict(input);
       
-      print('DEBUG: ML Prediction - probability: ${prediction.probability.toStringAsFixed(3)}, needCue: ${prediction.needCue}, responseTime: ${responseTime}s, currentLevel: $_cueLevel, correctBeforeCue: ${input.correctBeforeCueFlag}');
+      print('DEBUG: ML Prediction (24 features) - difficulty_score: ${prediction.probability.toStringAsFixed(3)}, needCue: ${prediction.needCue}, responseTime: ${responseTime.toStringAsFixed(1)}s, rollingAvg: ${input.responseTimeRollingAvg.toStringAsFixed(1)}s, recentAcc: ${input.recentAccuracyRate.toStringAsFixed(3)}, currentLevel: $_cueLevel');
       
       // ML-based cue progression: Show next cue when ML predicts patient needs help
       // Enforce minimum time delays before showing cues

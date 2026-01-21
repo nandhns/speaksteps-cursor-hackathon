@@ -70,13 +70,17 @@ df = pd.read_csv('synth_speaksteps.csv')
 print(f"\n✅ Dataset loaded: {df.shape[0]} rows, {df.shape[1]} columns")
 
 # ============================================================================
-# STEP 4: Feature Engineering
+# STEP 4: Feature Engineering (24-Feature Difficulty Estimator)
 # ============================================================================
-print("\n🔧 Engineering features...")
+print("\n🔧 Engineering features for difficulty estimation...")
 
 data = df.copy()
 
-# Encode categorical variables FIRST (before using in target variable)
+# Sort by session and time for rolling calculations
+data['presented_at'] = pd.to_datetime(data['presented_at_iso'], format='ISO8601')
+data = data.sort_values(['session_id', 'presented_at']).reset_index(drop=True)
+
+# --- Basic Categorical Encodings ---
 data['difficulty_flag'] = (data['difficulty_label'] == 'hard').astype(int)
 data['device_mobile_flag'] = (data['device_type'] == 'mobile').astype(int)
 
@@ -85,11 +89,16 @@ question_type_map = {
     'pic_to_word': 0,
     'word_to_pic': 1,
     'fill_in_blank': 2,
-    'audio_to_pic': 3
+    'audio_to_pic': 3,
+    'spelling_choice': 4,
+    'word_completion': 5,
+    'sentence_matching': 6,
+    'category_sorting': 7,
+    'yes_no_question': 8
 }
 data['question_type_encoded'] = data['question_type'].map(question_type_map).fillna(0)
 
-# Encode cue_type
+# Encode cue_type (for current cue context, not as leakage)
 cue_type_map = {
     'none': 0,
     'functional': 1,
@@ -102,81 +111,128 @@ cue_type_map = {
 }
 data['cue_type_encoded'] = data['cue_type'].fillna('none').map(cue_type_map)
 
-# Enhanced features from enriched metadata
-# Cue sequence position (normalized 0-1)
-data['cue_sequence_normalized'] = data['cue_sequence_number'].fillna(0) / 10.0
-
-# Exercise duration (normalize from seconds to minutes, then 0-1 scale)
-data['exercise_duration_minutes'] = data['exercise_duration_seconds'].fillna(0) / 60.0
-data['exercise_duration_normalized'] = np.clip(data['exercise_duration_minutes'] / 120.0, 0, 1)
-
-# Correctness before cue (MUST come before target variable)
-data['correct_before_cue_flag'] = data['correct_before_cue'].fillna(0).astype(int)
-
-# Module duration (calculate from iso timestamps)
-data['module_start_at'] = pd.to_datetime(data['module_start_at_iso'], format='ISO8601')
-data['module_end_at'] = pd.to_datetime(data['module_end_at_iso'], format='ISO8601')
-data['module_duration_seconds'] = (data['module_end_at'] - data['module_start_at']).dt.total_seconds().fillna(0)
-data['module_duration_normalized'] = np.clip(data['module_duration_seconds'] / 3600.0, 0, 1)  # Normalize to 0-1 (1 hour = max)
-
-# Time of day features (from presented_at_iso)
-data['presented_at'] = pd.to_datetime(data['presented_at_iso'], format='ISO8601')
+# --- Time of Day Features ---
 data['hour'] = data['presented_at'].dt.hour
 data['time_morning'] = ((data['hour'] >= 6) & (data['hour'] < 12)).astype(int)
 data['time_afternoon'] = ((data['hour'] >= 12) & (data['hour'] < 17)).astype(int)
 data['time_evening'] = ((data['hour'] >= 17) & (data['hour'] < 21)).astype(int)
 data['time_night'] = ((data['hour'] >= 21) | (data['hour'] < 6)).astype(int)
 
-# Module one-hot encoding
+# --- Module One-Hot Encoding ---
 data['module_comprehension'] = (data['module'] == 'comprehension').astype(int)
 data['module_writing'] = (data['module'] == 'writing').astype(int)
 
-# Category one-hot encoding
+# --- Category One-Hot Encoding ---
 data['cat_animals'] = (data['category'] == 'animals').astype(int)
 data['cat_body_parts'] = (data['category'] == 'body_parts').astype(int)
 data['cat_clothing'] = (data['category'] == 'clothing').astype(int)
 data['cat_food'] = (data['category'] == 'food').astype(int)
 
-# NOW create target variable after all features are ready
-# Logic: User needs cue if they struggled BEFORE getting one (slow response or wrong answer)
-# This ensures: fast+correct answers don't always trigger cues, even if one was previously given
+# --- Exercise Duration (normalized) ---
+data['exercise_duration_normalized'] = np.clip(data['exercise_duration_seconds'].fillna(0) / 300.0, 0, 1)  # 5 min max
+
+# --- NEW: Rolling/Session-Based Features (no data leakage) ---
+print("   Computing rolling features within sessions...")
+
+# 1. response_time_rolling_avg: Rolling average of last 5 response times within session
+data['response_time_rolling_avg'] = data.groupby('session_id')['response_time_seconds'].transform(
+    lambda x: x.shift(1).rolling(window=5, min_periods=1).mean()
+).fillna(data['response_time_seconds'].median())
+
+# 2. hints_used_ratio: Cumulative hints used / questions answered so far in session
+data['cumulative_hints'] = data.groupby('session_id')['hint_count'].cumsum()
+data['question_number_in_session'] = data.groupby('session_id').cumcount() + 1
+data['hints_used_ratio'] = (data['cumulative_hints'] / data['question_number_in_session']).fillna(0)
+data['hints_used_ratio'] = np.clip(data['hints_used_ratio'] / 3.0, 0, 1)  # Normalize (max ~3 hints/question)
+
+# 3. consecutive_incorrect: Running count of consecutive wrong answers (reset on correct)
+def calc_consecutive(group, target_val):
+    """Calculate consecutive streak of target_val, resetting on opposite."""
+    streaks = []
+    count = 0
+    for val in group:
+        if val == target_val:
+            count += 1
+        else:
+            count = 0
+        streaks.append(count)
+    return streaks
+
+data['consecutive_incorrect'] = data.groupby('session_id')['correct'].transform(
+    lambda x: calc_consecutive(x.shift(1).fillna(1).values, 0)  # Shift to avoid leakage
+).fillna(0).astype(int)
+data['consecutive_incorrect'] = np.clip(data['consecutive_incorrect'] / 5.0, 0, 1)  # Normalize (max 5)
+
+# 4. consecutive_correct: Running count of consecutive correct answers (reset on incorrect)
+data['consecutive_correct'] = data.groupby('session_id')['correct'].transform(
+    lambda x: calc_consecutive(x.shift(1).fillna(0).values, 1)  # Shift to avoid leakage
+).fillna(0).astype(int)
+data['consecutive_correct'] = np.clip(data['consecutive_correct'] / 5.0, 0, 1)  # Normalize (max 5)
+
+# 5. session_progress_ratio: Current question / total questions in session
+data['total_questions_in_session'] = data.groupby('session_id')['question_id'].transform('count')
+data['session_progress_ratio'] = data['question_number_in_session'] / data['total_questions_in_session']
+data['session_progress_ratio'] = data['session_progress_ratio'].fillna(0.5)
+
+# 6. recent_accuracy_rate: Rolling accuracy over last 5 questions (shifted to avoid leakage)
+data['recent_accuracy_rate'] = data.groupby('session_id')['correct'].transform(
+    lambda x: x.shift(1).rolling(window=5, min_periods=1).mean()
+).fillna(0.5)  # Default to 50% if no history
+
+# --- Target Variable: Difficulty Score (0-1) ---
+# Logic: Higher score = patient is struggling more = needs more cue support
+# Combine multiple signals into a continuous difficulty score
+data['difficulty_score'] = (
+    # Slow response contributes to difficulty (normalized: 15s+ is high difficulty)
+    np.clip(data['response_time_seconds'] / 30.0, 0, 1) * 0.3 +
+    # Incorrect answer is strong signal of difficulty
+    (1 - data['correct']) * 0.4 +
+    # Hard exercises are inherently more difficult
+    data['difficulty_flag'] * 0.15 +
+    # Low recent accuracy indicates struggling
+    (1 - data['recent_accuracy_rate']) * 0.15
+).clip(0, 1)
+
+# Also keep binary target for classification metrics
 data['need_cue_next'] = (
-    ((data['response_time_seconds'] > 15) & (data['correct_before_cue_flag'] == 0)) |
-    ((data['correct'] == 0) & (data['correct_before_cue_flag'] == 0))
+    (data['response_time_seconds'] > 15) |  # Slow response
+    (data['correct'] == 0) |                 # Wrong answer
+    (data['recent_accuracy_rate'] < 0.6)     # Recent struggling
 ).astype(int)
 
-print("✅ Features engineered!")
+print("✅ Features engineered (24 features for difficulty estimation)!")
 
 # ============================================================================
 # STEP 5: Prepare Training Data
 # ============================================================================
 print("\n📊 Preparing training data...")
 
-# Select features for model (23 features total - enhanced with enriched metadata)
+# Select features for model (24 features - difficulty estimator, NO data leakage)
 feature_columns = [
-    'response_time_seconds',           # 0
-    'cue_given',                        # 1
-    'cue_stage',                        # 2
-    'hint_count',                       # 3
-    'difficulty_flag',                  # 4
-    'device_mobile_flag',               # 5
-    'therapist_assigned_level',         # 6
-    'question_type_encoded',            # 7
-    'cue_type_encoded',                 # 8
-    'time_morning',                     # 9
-    'time_afternoon',                   # 10
-    'time_evening',                     # 11
-    'time_night',                       # 12
-    'module_comprehension',             # 13
-    'module_writing',                   # 14
-    'cat_animals',                      # 15
-    'cat_body_parts',                   # 16
-    'cat_clothing',                     # 17
-    'cat_food',                         # 18
-    'cue_sequence_normalized',          # 19 - NEW: Position in cue sequence (1st, 2nd, 3rd cue)
-    'exercise_duration_normalized',     # 20 - NEW: How long exercise took (normalized)
-    'correct_before_cue_flag',          # 21 - NEW: Was answer correct BEFORE cue intervention?
-    'module_duration_normalized',       # 22 - NEW: Module session duration (normalized)
+    'response_time_seconds',           # 0  - Current response time
+    'response_time_rolling_avg',       # 1  - Rolling avg of last 5 response times
+    'hint_count',                      # 2  - Hints used on current question
+    'hints_used_ratio',                # 3  - Cumulative hints / questions in session
+    'consecutive_incorrect',           # 4  - Streak of wrong answers (normalized)
+    'consecutive_correct',             # 5  - Streak of correct answers (normalized)
+    'difficulty_flag',                 # 6  - Is this a hard exercise?
+    'device_mobile_flag',              # 7  - Mobile vs web
+    'therapist_assigned_level',        # 8  - Therapist-set difficulty level (1-5)
+    'question_type_encoded',           # 9  - Type of question
+    'cue_type_encoded',                # 10 - Type of cue if any given previously
+    'time_morning',                    # 11 - Time of day: morning
+    'time_afternoon',                  # 12 - Time of day: afternoon
+    'time_evening',                    # 13 - Time of day: evening
+    'time_night',                      # 14 - Time of day: night
+    'module_comprehension',            # 15 - Comprehension module
+    'module_writing',                  # 16 - Writing module
+    'cat_animals',                     # 17 - Category: animals
+    'cat_body_parts',                  # 18 - Category: body parts
+    'cat_clothing',                    # 19 - Category: clothing
+    'cat_food',                        # 20 - Category: food
+    'exercise_duration_normalized',    # 21 - Time spent on exercise so far
+    'session_progress_ratio',          # 22 - Progress through session (0-1)
+    'recent_accuracy_rate',            # 23 - Accuracy over last 5 questions
 ]
 
 X = data[feature_columns].fillna(0).values
@@ -201,17 +257,20 @@ scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
-# Build model (expanded for 23 features with enriched metadata)
+# Build model (24 features - difficulty estimator)
+# Output is sigmoid (0-1) representing difficulty score / cue need probability
 model = models.Sequential([
-    layers.Input(shape=(23,)),
+    layers.Input(shape=(24,)),  # 24 features
     layers.Dense(64, activation='relu'),
+    layers.BatchNormalization(),
     layers.Dropout(0.3),
     layers.Dense(32, activation='relu'),
+    layers.BatchNormalization(),
     layers.Dropout(0.2),
     layers.Dense(16, activation='relu'),
     layers.Dropout(0.2),
     layers.Dense(8, activation='relu'),
-    layers.Dense(1, activation='sigmoid')
+    layers.Dense(1, activation='sigmoid')  # Output: difficulty score 0-1
 ])
 
 model.compile(
@@ -325,11 +384,24 @@ print("\n💾 Saving scaler and metadata...")
 joblib.dump(scaler, 'model.joblib')
 print("✅ Saved model.joblib (scaler)")
 
-# Save metadata
+# Save metadata with cue thresholds for difficulty-based cue decisions
 metadata = {
     'feature_columns': feature_columns,
     'feature_count': len(feature_columns),
-    'model_type': 'neural_network',
+    'model_type': 'difficulty_estimator',
+    'output_type': 'difficulty_score',
+    'output_range': [0.0, 1.0],
+    'cue_thresholds': {
+        'no_cue': {'min': 0.0, 'max': 0.3},
+        'light_cue': {'min': 0.3, 'max': 0.5},
+        'moderate_cue': {'min': 0.5, 'max': 0.7},
+        'strong_cue': {'min': 0.7, 'max': 1.0}
+    },
+    'cue_decision_rules': {
+        'description': 'Score >= threshold triggers cue. Higher score = more assistance needed.',
+        'default_threshold': 0.4,
+        'adaptive_threshold': True
+    },
     'accuracy': float(accuracy),
     'precision': float(precision),
     'recall': float(recall),
@@ -339,6 +411,15 @@ metadata = {
     'training_samples': int(X_train.shape[0]),
     'test_samples': int(X_test.shape[0]),
     'random_state': RANDOM_STATE,
+    'feature_descriptions': {
+        'response_time_seconds': 'Time taken to respond to current question',
+        'response_time_rolling_avg': 'Rolling average of last 5 response times',
+        'hints_used_ratio': 'Hints used / hints available in session',
+        'consecutive_incorrect': 'Number of consecutive wrong answers (normalized)',
+        'consecutive_correct': 'Number of consecutive correct answers (normalized)',
+        'session_progress_ratio': 'Current question / total questions in session',
+        'recent_accuracy_rate': 'Accuracy over last 5 questions (0-1)'
+    }
 }
 
 with open('model_metadata.json', 'w') as f:
@@ -397,11 +478,21 @@ print("\n📋 Next Steps:")
 print("1. Copy downloaded files to: backend/models/")
 print("2. Also download the 'saved_model' folder (if needed)")
 print("3. Update backend code to load the real TFLite model")
-print("\n✅ Model Features (23 total):")
-print("   - Core: response_time, cue_given, cue_stage, hints, difficulty, device")
-print("   - Categories: animals, body_parts, clothing, food")
+print("\n✅ Model Features (24 total - Difficulty Estimator):")
+print("   - Performance: response_time, response_time_rolling_avg, recent_accuracy_rate")
+print("   - Hints: hint_count, hints_used_ratio")
+print("   - Streaks: consecutive_incorrect, consecutive_correct")
+print("   - Context: difficulty_flag, device, therapist_level, question_type, cue_type")
 print("   - Time: morning, afternoon, evening, night")
-print("   - ENRICHED: cue_sequence, exercise_duration, correct_before_cue, module_duration")
+print("   - Module: comprehension, writing")
+print("   - Category: animals, body_parts, clothing, food")
+print("   - Session: exercise_duration, session_progress_ratio")
+print("\n🎯 Cue Decision Thresholds:")
+print("   - No cue needed:    score < 0.3")
+print("   - Light cue:        0.3 <= score < 0.5")
+print("   - Moderate cue:     0.5 <= score < 0.7")
+print("   - Strong cue:       score >= 0.7")
+print("   - Default threshold: 0.4")
 print("\n✅ Model Performance:")
 print(f"   - Accuracy: {accuracy:.2%}")
 print(f"   - Precision: {precision:.2%}")

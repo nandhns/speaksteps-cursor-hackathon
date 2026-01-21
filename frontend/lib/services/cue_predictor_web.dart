@@ -47,50 +47,87 @@ class CuePredictorWeb implements ICuePredictor {
   }
 
   /// Calculate cue probability using rule-based logic
-  /// This mirrors the logic used in synthetic data generation
+  /// For the 24-feature difficulty-estimator model:
+  /// - Primary signals: response_time_rolling_avg, recent_accuracy_rate, consecutive_incorrect
+  /// - Secondary signals: consecutiveCorrect, hintsUsedRatio, responseTimeSeconds
+  /// - Context signals: difficultyFlag, therapistAssignedLevel, time of day
   double _calculateProbability(CuePredictorInput input) {
     double prob = 0.0;
     
-    // ===== CRITICAL FIX: correctBeforeCueFlag is the DOMINANT predictor (46% feature importance) =====
-    // If user already received a cue, probability is much higher they'll need another
-    if (input.correctBeforeCueFlag == 1) {
-      // User already received at least one cue
-      prob += 0.46; // This is the dominant feature from feature importance
-    }
-    
-    // Response time is the secondary predictor (after correctBeforeCueFlag)
-    // But also very important - long response times indicate difficulty
-    if (input.responseTimeSeconds > 30) {
-      prob += 0.35; // Strong signal they need help
-    } else if (input.responseTimeSeconds > 20) {
+    // PRIMARY SIGNAL: Rolling average response time (most predictive of struggle)
+    // High rolling response time indicates consistent difficulty
+    if (input.responseTimeRollingAvg > 25) {
+      prob += 0.30; // Strong signal: patient consistently slow
+    } else if (input.responseTimeRollingAvg > 18) {
       prob += 0.20;
-    } else if (input.responseTimeSeconds > 15) {
-      prob += 0.12;
-    } else if (input.responseTimeSeconds > 10) {
-      prob += 0.06;
+    } else if (input.responseTimeRollingAvg > 12) {
+      prob += 0.10;
     }
     
-    // Difficulty factor
+    // PRIMARY SIGNAL: Recent accuracy rate (reversed logic: low accuracy = high need)
+    // If recent accuracy < 0.6, patient is struggling
+    if (input.recentAccuracyRate < 0.4) {
+      prob += 0.28; // Very high need: patient getting most questions wrong
+    } else if (input.recentAccuracyRate < 0.6) {
+      prob += 0.18; // Moderate need: below 60% accuracy
+    } else if (input.recentAccuracyRate < 0.8) {
+      prob += 0.08; // Mild need: below 80% accuracy
+    }
+    
+    // SECONDARY SIGNAL: Consecutive incorrect streak
+    // High streak of wrong answers indicates they need help
+    if (input.consecutiveIncorrect > 0.7) {
+      prob += 0.15; // Very high: 70%+ recent questions wrong
+    } else if (input.consecutiveIncorrect > 0.4) {
+      prob += 0.08;
+    }
+    
+    // SECONDARY SIGNAL: Consecutive correct (inverse relationship)
+    // High correct streak means they don't need help
+    if (input.consecutiveCorrect > 0.7) {
+      prob -= 0.10; // Reduce: patient on a roll
+    }
+    
+    // SECONDARY SIGNAL: Current response time (immediate feedback)
+    if (input.responseTimeSeconds > 30) {
+      prob += 0.12; // Strong: this question is taking very long
+    } else if (input.responseTimeSeconds > 20) {
+      prob += 0.07;
+    } else if (input.responseTimeSeconds > 12) {
+      prob += 0.03;
+    }
+    
+    // CONTEXT: Difficulty factor
     if (input.difficultyFlag == 1) {
-      prob += 0.08; // Hard items have lower base accuracy
+      prob += 0.08; // Hard items have higher inherent difficulty
     }
     
-    // Cue history suggests struggle (only applies if no cue given yet)
-    if (input.cueGiven == 0) {
-      prob += input.hintCount * 0.02;
+    // CONTEXT: Hint usage
+    // hintsUsedRatio is already normalized (0-1)
+    if (input.hintsUsedRatio > 0.3) {
+      prob += 0.05; // Using many hints suggests struggle
     }
     
-    // Therapist level (higher level = more challenging content)
-    prob += (input.therapistAssignedLevel - 1) * 0.01;
+    // CONTEXT: Therapist assigned level (higher = harder content)
+    if (input.therapistAssignedLevel >= 4) {
+      prob += 0.06;
+    } else if (input.therapistAssignedLevel == 3) {
+      prob += 0.03;
+    }
     
-    // Time of day factor (evening/night slightly higher fatigue)
+    // CONTEXT: Time of day (evening/night slightly higher fatigue)
     if (input.timeEvening == 1 || input.timeNight == 1) {
-      prob += 0.02;
+      prob += 0.04;
+    }
+    
+    // CONTEXT: Session progress (beginning of session = fresher, later = more fatigued)
+    if (input.sessionProgressRatio > 0.8) {
+      prob += 0.04; // Later in session, more fatigue
     }
     
     // Add small random variation to simulate ML uncertainty
     final random = Random();
-    prob += (random.nextDouble() - 0.5) * 0.05;
+    prob += (random.nextDouble() - 0.5) * 0.03;
     
     // Clamp to valid probability range
     return prob.clamp(0.0, 1.0);
@@ -109,31 +146,33 @@ class CuePredictorWeb implements ICuePredictor {
       );
     }
 
-    // Reconstruct input from vector (23 features)
+    // Reconstruct input from vector (24 features)
+    // Order must match model_metadata.json feature_columns
     final input = CuePredictorInput(
       responseTimeSeconds: features[0],
-      cueGiven: features[1].toInt(),
-      cueStage: features[2].toInt(),
-      hintCount: features[3].toInt(),
-      difficultyFlag: features[4].toInt(),
-      deviceMobileFlag: features[5].toInt(),
-      therapistAssignedLevel: features[6].toInt(),
-      questionTypeEncoded: features[7].toInt(),
-      cueTypeEncoded: features[8].toInt(),
-      timeMorning: features[9].toInt(),
-      timeAfternoon: features[10].toInt(),
-      timeEvening: features[11].toInt(),
-      timeNight: features[12].toInt(),
-      moduleComprehension: features[13].toInt(),
-      moduleWriting: features[14].toInt(),
-      catAnimals: features[15].toInt(),
-      catBodyParts: features[16].toInt(),
-      catClothing: features[17].toInt(),
-      catFood: features[18].toInt(),
-      cueSequenceNormalized: features[19],
-      exerciseDurationNormalized: features[20],
-      correctBeforeCueFlag: features[21].toInt(),
-      moduleDurationNormalized: features[22],
+      responseTimeRollingAvg: features[1],
+      hintCount: features[2].toInt(),
+      hintsUsedRatio: features[3],
+      consecutiveIncorrect: features[4],
+      consecutiveCorrect: features[5],
+      difficultyFlag: features[6].toInt(),
+      deviceMobileFlag: features[7].toInt(),
+      therapistAssignedLevel: features[8].toInt(),
+      questionTypeEncoded: features[9].toInt(),
+      cueTypeEncoded: features[10].toInt(),
+      timeMorning: features[11].toInt(),
+      timeAfternoon: features[12].toInt(),
+      timeEvening: features[13].toInt(),
+      timeNight: features[14].toInt(),
+      moduleComprehension: features[15].toInt(),
+      moduleWriting: features[16].toInt(),
+      catAnimals: features[17].toInt(),
+      catBodyParts: features[18].toInt(),
+      catClothing: features[19].toInt(),
+      catFood: features[20].toInt(),
+      exerciseDurationNormalized: features[21],
+      sessionProgressRatio: features[22],
+      recentAccuracyRate: features[23],
     );
 
     return predict(input);

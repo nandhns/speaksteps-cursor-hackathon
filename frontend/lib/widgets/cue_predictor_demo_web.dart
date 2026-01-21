@@ -65,8 +65,6 @@ class _CuePredictorDemoWebState extends State<CuePredictorDemoWeb> {
     try {
       final input = CuePredictorInput.fromSimple(
         responseTimeSeconds: _responseTime,
-        cueGiven: _attempts > 0 ? 1 : 0,
-        cueStage: _attempts,
         hintCount: _attempts,
         difficulty: _difficulty,
         isMobile: !kIsWeb,

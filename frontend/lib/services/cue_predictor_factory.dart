@@ -22,13 +22,9 @@ export 'cue_predictor_interface.dart';
 /// Factory to create the appropriate predictor for the current platform
 class CuePredictorFactory {
   static ICuePredictor create() {
-    // TEMPORARY FIX: Use rule-based predictor on ALL platforms
-    // The TFLite model is returning 0.0 probability - needs retraining
-    print('CuePredictorFactory: Using rule-based predictor (TFLite model issue)');
-    return CuePredictorWeb();
-    
-    // Original code (commented out until TFLite model is fixed):
-    // return CuePredictorNative();
+    // Use the TFLite trained model on native platforms
+    print('CuePredictorFactory: Using TFLite ML model');
+    return CuePredictorNative();
   }
 }
 
