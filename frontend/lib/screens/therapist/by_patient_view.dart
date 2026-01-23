@@ -200,7 +200,7 @@ class _ByPatientViewState extends State<ByPatientView>
                   controller: _tabController,
                   tabs: const [
                     Tab(text: 'Patient Details'),
-                    Tab(text: 'Report'),
+                    Tab(text: 'Performance Progress'),
                   ],
                 ),
                 Expanded(

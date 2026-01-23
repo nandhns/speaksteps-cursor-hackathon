@@ -38,10 +38,12 @@ class ReportUtils {
 
     // Question durations (group by category and exercise)
     final questionDurationsByCategory = <String, Map<String, List<int>>>{};
+    final exerciseTitles = <String, String>{}; // Track exercise titles
     for (var score in allScores) {
       if (score.metadata?['timeTaken'] != null) {
         final category = score.metadata?['category'] as String? ?? 'unknown';
         final exerciseId = score.exerciseId;
+        exerciseTitles[exerciseId] = score.exerciseTitle; // Store title
         questionDurationsByCategory.putIfAbsent(category, () => {});
         questionDurationsByCategory[category]!.putIfAbsent(exerciseId, () => []).add(
               score.metadata!['timeTaken'] as int,
@@ -53,7 +55,8 @@ class ReportUtils {
       final categoryName = _getCategoryDisplayName(categoryEntry.key);
       for (var exerciseEntry in categoryEntry.value.entries) {
         final avg = (exerciseEntry.value.reduce((a, b) => a + b) / exerciseEntry.value.length).round();
-        questionDurationList.add('[$categoryName] Q${exerciseEntry.key.substring(exerciseEntry.key.length - 1)} - ${avg}s');
+        final title = exerciseTitles[exerciseEntry.key] ?? 'Exercise';
+        questionDurationList.add('[$categoryName] $title - ${avg}s');
       }
     }
 
@@ -64,6 +67,7 @@ class ReportUtils {
         final category = score.metadata?['category'] as String? ?? 'unknown';
         final exerciseId = score.exerciseId;
         final cueLevel = score.metadata!['cueLevel'] as int;
+        exerciseTitles[exerciseId] = score.exerciseTitle; // Store title
         cueNeededByCategory.putIfAbsent(category, () => {});
         cueNeededByCategory[category]!.putIfAbsent(exerciseId, () => []).add(cueLevel);
       }
@@ -80,7 +84,8 @@ class ReportUtils {
                 : avgCue == 3
                     ? 'Written'
                     : 'None';
-        cueNeededList.add('[$categoryName] Q${exerciseEntry.key.substring(exerciseEntry.key.length - 1)} - $cueType');
+        final title = exerciseTitles[exerciseEntry.key] ?? 'Exercise';
+        cueNeededList.add('[$categoryName] $title - $cueType');
       }
     }
 
@@ -140,10 +145,12 @@ class ReportUtils {
 
     // Question durations (group by category)
     final questionDurationsByCategory = <String, Map<String, List<int>>>{};
+    final exerciseTitles = <String, String>{}; // Track exercise titles
     for (var score in scores) {
       if (score.metadata?['timeTaken'] != null) {
         final category = score.metadata?['category'] as String? ?? 'unknown';
         final exerciseId = score.exerciseId;
+        exerciseTitles[exerciseId] = score.exerciseTitle; // Store title
         questionDurationsByCategory.putIfAbsent(category, () => {});
         questionDurationsByCategory[category]!.putIfAbsent(exerciseId, () => []).add(
               score.metadata!['timeTaken'] as int,
@@ -155,7 +162,8 @@ class ReportUtils {
       final categoryName = _getCategoryDisplayName(categoryEntry.key);
       for (var exerciseEntry in categoryEntry.value.entries) {
         final avg = (exerciseEntry.value.reduce((a, b) => a + b) / exerciseEntry.value.length).round();
-        questionDurationList.add('[$categoryName] Q${exerciseEntry.key.substring(exerciseEntry.key.length - 1)} - ${avg}s');
+        final title = exerciseTitles[exerciseEntry.key] ?? 'Exercise';
+        questionDurationList.add('[$categoryName] $title - ${avg}s');
       }
     }
 
@@ -166,6 +174,7 @@ class ReportUtils {
         final category = score.metadata?['category'] as String? ?? 'unknown';
         final exerciseId = score.exerciseId;
         final cueLevel = score.metadata!['cueLevel'] as int;
+        exerciseTitles[exerciseId] = score.exerciseTitle; // Store title
         cueNeededByCategory.putIfAbsent(category, () => {});
         cueNeededByCategory[category]!.putIfAbsent(exerciseId, () => []).add(cueLevel);
       }
@@ -182,7 +191,8 @@ class ReportUtils {
                 : avgCue == 3
                     ? 'Written'
                     : 'None';
-        cueNeededList.add('[$categoryName] Q${exerciseEntry.key.substring(exerciseEntry.key.length - 1)} - $cueType');
+        final title = exerciseTitles[exerciseEntry.key] ?? 'Exercise';
+        cueNeededList.add('[$categoryName] $title - $cueType');
       }
     }
 

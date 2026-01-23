@@ -138,6 +138,10 @@ class AppStrings {
   String get cue => isMalay ? 'Petunjuk' : 'Cue';
   String get noCue => isMalay ? 'Tiada petunjuk' : 'No cue';
   String get functionalCue => isMalay ? 'Petunjuk fungsi' : 'Functional cue';
+  String get rhymingCue => isMalay ? 'Petunjuk rima' : 'Rhyming cue';
+  String get writtenInitialCue => isMalay ? 'Petunjuk huruf awal' : 'Written initial cue';
+  String get spellingCue => isMalay ? 'Petunjuk ejaan' : 'Spelling cue';
+  String get sentenceCompletionCue => isMalay ? 'Lengkapkan ayat' : 'Sentence completion';
   String get phonemicCue => isMalay ? 'Petunjuk bunyi' : 'Phonemic cue';
   String get writtenCue => isMalay ? 'Petunjuk bertulis' : 'Written cue';
   String get modelingCue => isMalay ? 'Contoh' : 'Modeling';

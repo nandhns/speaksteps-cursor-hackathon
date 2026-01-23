@@ -12,8 +12,10 @@ import '../../widgets/ui/app_card.dart';
 import '../../widgets/language_selector.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/app_strings.dart';
+import '../../widgets/patient_dashboard_card.dart';
 import 'writing_exercise_screen.dart';
 import 'comprehension_exercise_screen.dart';
+import 'caregiver_guide_screen.dart';
 
 class PatientHomeScreen extends StatefulWidget {
   const PatientHomeScreen({super.key});
@@ -352,10 +354,43 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
             ),
             const SizedBox(width: AppTheme.spacingXs),
             Icon(Icons.expand_more, size: 18, color: AppTheme.textSecondary),
+            const SizedBox(width: AppTheme.spacingSm),
+            Text(
+              lang == 'ms' ? 'Klik untuk menu' : 'Click for menu',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppTheme.textSecondary,
+                    fontSize: 11,
+                  ),
+            ),
           ],
         ),
       ),
       itemBuilder: (context) => [
+        PopupMenuItem(
+          value: 'dashboard',
+          child: Row(
+            children: [
+              Icon(Icons.insights, size: 18, color: AppTheme.primaryPurple),
+              const SizedBox(width: AppTheme.spacingMd),
+              Text(
+                lang == 'ms' ? 'Kemajuan Saya' : 'My Progress',
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'caregiver',
+          child: Row(
+            children: [
+              Icon(Icons.supervisor_account, size: 18, color: AppTheme.primaryPurple),
+              const SizedBox(width: AppTheme.spacingMd),
+              Text(
+                lang == 'ms' ? 'Panduan Penjaga' : 'Caregiver Guide',
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
         PopupMenuItem(
           value: 'language',
           child: Row(
@@ -386,7 +421,13 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
         ),
       ],
       onSelected: (value) async {
-        if (value == 'language') {
+        if (value == 'dashboard') {
+          _showDashboardBottomSheet(context);
+        } else if (value == 'caregiver') {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const CaregiverGuideScreen()),
+          );
+        } else if (value == 'language') {
           showDialog(
             context: context,
             builder: (context) => const LanguageSelectionDialog(),
@@ -396,6 +437,30 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
           if (mounted) context.go('/login');
         }
       },
+    );
+  }
+
+  void _showDashboardBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => SingleChildScrollView(
+          controller: scrollController,
+          child: PatientDashboardCard(
+            scores: _exerciseScores.values.whereType<ExerciseScore>().toList()
+              ..sort((a, b) => b.completedAt.compareTo(a.completedAt)),
+            patientName: _service.currentUser?.name ?? 'Patient',
+          ),
+        ),
+      ),
     );
   }
 

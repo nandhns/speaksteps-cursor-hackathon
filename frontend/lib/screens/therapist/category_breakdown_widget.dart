@@ -41,15 +41,14 @@ class CategoryBreakdownWidget extends StatelessWidget {
       final avgTime = times.isEmpty
           ? 0
           : (times.reduce((a, b) => a + b) / times.length).round();
-      
-      final totalTime = times.isEmpty ? 0 : times.reduce((a, b) => a + b);
-      final totalTimeMin = (totalTime / 60).toStringAsFixed(1);
 
-      // Question durations by exercise ID
+      // Question durations by exercise title (more user-friendly)
       final questionDurations = <String, List<int>>{};
+      final exerciseTitles = <String, String>{}; // Map exercise ID to title
       for (var score in categoryScores) {
         if (score.metadata?['timeTaken'] != null) {
           final exerciseId = score.exerciseId;
+          exerciseTitles[exerciseId] = score.exerciseTitle;
           questionDurations.putIfAbsent(exerciseId, () => []).add(
                 score.metadata!['timeTaken'] as int,
               );
@@ -57,15 +56,17 @@ class CategoryBreakdownWidget extends StatelessWidget {
       }
       final questionDurationList = questionDurations.entries.map((e) {
         final avg = (e.value.reduce((a, b) => a + b) / e.value.length).round();
-        return 'Question ${e.key.substring(e.key.length - 1)} - ${avg}s';
+        final title = exerciseTitles[e.key] ?? 'Exercise';
+        return '$title - ${avg}s';
       }).toList();
 
-      // Cue needed per question
+      // Cue needed per question (using exercise titles)
       final cueNeededPerQuestion = <String, List<int>>{};
       for (var score in categoryScores) {
         if (score.metadata?['cueLevel'] != null) {
           final exerciseId = score.exerciseId;
           final cueLevel = score.metadata!['cueLevel'] as int;
+          exerciseTitles[exerciseId] = score.exerciseTitle;
           cueNeededPerQuestion.putIfAbsent(exerciseId, () => []).add(cueLevel);
         }
       }
@@ -78,7 +79,8 @@ class CategoryBreakdownWidget extends StatelessWidget {
                 : avgCue == 3
                     ? 'Written'
                     : 'None';
-        return 'Question ${e.key.substring(e.key.length - 1)} - $cueType';
+        final title = exerciseTitles[e.key] ?? 'Exercise';
+        return '$title - $cueType';
       }).toList();
 
       // Average cue type
@@ -100,10 +102,10 @@ class CategoryBreakdownWidget extends StatelessWidget {
       categoryMetrics[category] = {
         'count': categoryScores.length,
         'avgTimeComplete': '${avgTime}s',
-        'totalTimeOnApp': '$totalTimeMin min',
         'questionDurations': questionDurationList,
         'cueNeededPerQuestion': cueNeededList,
         'avgCueType': avgCueType,
+        'scores': categoryScores, // Add full score list for history table
       };
     }
 
@@ -178,10 +180,10 @@ class CategoryBreakdownWidget extends StatelessWidget {
                     Expanded(
                       child: _buildMetricCard(
                         context,
-                        'Total Time on App',
-                        metrics['totalTimeOnApp'] as String,
-                        Icons.access_time,
-                        Colors.orange,
+                        'Avg Cue Type',
+                        metrics['avgCueType'] as String,
+                        Icons.help_outline,
+                        Colors.teal,
                       ),
                     ),
                   ],
@@ -211,13 +213,20 @@ class CategoryBreakdownWidget extends StatelessWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 16),
+                const Divider(),
                 const SizedBox(height: 12),
-                _buildMetricCard(
+                // Exercise History Table
+                Text(
+                  'Exercise Attempt History',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                _buildExerciseHistoryTable(
                   context,
-                  'Avg Cue Type',
-                  metrics['avgCueType'] as String,
-                  Icons.help_outline,
-                  Colors.teal,
+                  metrics['scores'] as List<ExerciseScore>,
                 ),
               ],
             ),
@@ -370,5 +379,141 @@ class CategoryBreakdownWidget extends StatelessWidget {
         return Colors.purple;
     }
   }
-}
 
+  Widget _buildExerciseHistoryTable(BuildContext context, List<ExerciseScore> scores) {
+    // Sort scores by date (most recent first)
+    final sortedScores = List<ExerciseScore>.from(scores)
+      ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
+
+    return Card(
+      color: Colors.grey.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Table header
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    'Exercise',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Score',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Time',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Date',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const Divider(),
+            // Table rows
+            SizedBox(
+              height: 150,
+              child: ListView.builder(
+                itemCount: sortedScores.length,
+                itemBuilder: (context, index) {
+                  final score = sortedScores[index];
+                  final percentage = score.maxScore > 0 
+                      ? (score.score / score.maxScore * 100) 
+                      : 0;
+                  final isPassing = percentage >= 70;
+                  final time = score.metadata?['timeTaken'] as int? ?? 0;
+                  
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: Text(
+                            score.exerciseTitle,
+                            style: const TextStyle(fontSize: 11),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Row(
+                            children: [
+                              Icon(
+                                isPassing ? Icons.check_circle : Icons.cancel,
+                                size: 12,
+                                color: isPassing ? Colors.green : Colors.orange,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${percentage.toStringAsFixed(0)}%',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: isPassing ? Colors.green.shade700 : Colors.orange.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            '${time}s',
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            '${score.completedAt.month}/${score.completedAt.day}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
