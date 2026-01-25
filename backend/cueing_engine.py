@@ -50,8 +50,9 @@ CUE_HIERARCHY = [
     CueType.MODELING,         # 7 - Full word "money"
 ]
 
-# Timing for each cue level (in seconds from start or previous cue)
-CUE_TIMING = {
+# Default timing for each cue level (in seconds from start or previous cue)
+# Used when performance level is high
+CUE_TIMING_DEFAULT = {
     CueType.NO_CUE: 0,
     CueType.FUNCTIONAL: 10,       # Show after 10 seconds
     CueType.RHYMING: 8,           # Show 8 seconds after function cue
@@ -61,6 +62,55 @@ CUE_TIMING = {
     CueType.PHONEMIC: 8,          # Show 8 seconds after sentence
     CueType.MODELING: 8,          # Show 8 seconds after phonemic
 }
+
+# Performance-based timing: LOW performance (<60% accuracy)
+# Therapist feedback: 15s minimum interval for low performers
+CUE_TIMING_LOW = {
+    CueType.NO_CUE: 0,
+    CueType.FUNCTIONAL: 15,
+    CueType.RHYMING: 15,
+    CueType.WRITTEN_INITIAL: 15,
+    CueType.SPELLING: 15,
+    CueType.SENTENCE_COMPLETION: 15,
+    CueType.PHONEMIC: 15,
+    CueType.MODELING: 15,
+}
+
+# Performance-based timing: MILD performance (60-80% accuracy)
+# Therapist feedback: 30s interval for mild performers
+CUE_TIMING_MILD = {
+    CueType.NO_CUE: 0,
+    CueType.FUNCTIONAL: 30,
+    CueType.RHYMING: 30,
+    CueType.WRITTEN_INITIAL: 30,
+    CueType.SPELLING: 30,
+    CueType.SENTENCE_COMPLETION: 30,
+    CueType.PHONEMIC: 30,
+    CueType.MODELING: 30,
+}
+
+# Performance-based timing: HIGH performance (>80% accuracy)
+# Original timing - faster cue progression
+CUE_TIMING_HIGH = {
+    CueType.NO_CUE: 0,
+    CueType.FUNCTIONAL: 10,
+    CueType.RHYMING: 8,
+    CueType.WRITTEN_INITIAL: 8,
+    CueType.SPELLING: 8,
+    CueType.SENTENCE_COMPLETION: 8,
+    CueType.PHONEMIC: 8,
+    CueType.MODELING: 8,
+}
+
+# Map performance levels to their timing dictionaries
+PERFORMANCE_BASED_TIMINGS = {
+    'low': CUE_TIMING_LOW,
+    'mild': CUE_TIMING_MILD,
+    'high': CUE_TIMING_HIGH,
+}
+
+# Default to high performance timing for backward compatibility
+CUE_TIMING = CUE_TIMING_DEFAULT
 
 CUE_TYPE_TO_STAGE = {cue: idx for idx, cue in enumerate(CUE_HIERARCHY)}
 
@@ -190,6 +240,37 @@ def get_recent_accuracy(correctness_last_n: List[int], n: int = 3) -> float:
         return 1.0  # Assume good if no history
     recent = correctness_last_n[-n:]
     return sum(recent) / len(recent)
+
+
+def calculate_performance_level(correctness_last_n: List[int], response_times: List[float] = None) -> str:
+    """
+    Calculate patient's performance level to determine cue timing.
+    
+    Performance levels:
+    - 'low':  < 60% accuracy  → longer waits between cues (15s)
+    - 'mild': 60-80% accuracy → moderate waits (30s)
+    - 'high': > 80% accuracy  → normal waits (10s, 8s)
+    
+    Args:
+        correctness_last_n: List of recent correctness values (0/1)
+        response_times: Optional list of response times for additional context
+        
+    Returns:
+        Performance level: 'low', 'mild', or 'high'
+    """
+    if not correctness_last_n:
+        return 'high'  # Default to high if no data
+    
+    # Calculate recent accuracy using last 10 attempts (or all if fewer)
+    recent_accuracy = get_recent_accuracy(correctness_last_n, n=min(10, len(correctness_last_n)))
+    
+    # Determine performance level based on accuracy
+    if recent_accuracy < 0.6:
+        return 'low'
+    elif recent_accuracy < 0.8:
+        return 'mild'
+    else:
+        return 'high'
 
 
 def decide_cue_rules(feature_dict: Dict) -> Tuple[str, int, str]:
@@ -444,21 +525,41 @@ def get_next_cue_level(current_stage: int) -> Tuple[str, int]:
     return (next_cue_type.value, next_stage)
 
 
-def get_cue_timing_seconds(cue_type: str) -> int:
+def get_cue_timing_seconds(cue_type: str, performance_level: str = 'high') -> int:
     """
     Get the recommended timing (in seconds) for when to show this cue level.
     
     Args:
         cue_type: The cue type string
+        performance_level: 'low', 'mild', or 'high' to adjust timing
         
     Returns:
         Number of seconds to wait before showing this cue
     """
     try:
         cue_enum = CueType(cue_type)
-        return CUE_TIMING.get(cue_enum, 10)  # Default to 10 seconds
+        
+        # Select timing table based on performance level
+        timing_table = PERFORMANCE_BASED_TIMINGS.get(performance_level, CUE_TIMING_HIGH)
+        
+        return timing_table.get(cue_enum, 10)  # Default to 10 seconds
     except ValueError:
         return 10  # Default fallback
+
+
+def get_cue_timing_config(performance_level: str) -> Dict:
+    """
+    Get the entire timing configuration for a performance level.
+    
+    This can be sent to the frontend to apply all timing rules at once.
+    
+    Args:
+        performance_level: 'low', 'mild', or 'high'
+        
+    Returns:
+        Dictionary mapping cue types to their timing in seconds
+    """
+    return PERFORMANCE_BASED_TIMINGS.get(performance_level, CUE_TIMING_HIGH)
 
 
 def format_decision_result(result: Dict) -> str:

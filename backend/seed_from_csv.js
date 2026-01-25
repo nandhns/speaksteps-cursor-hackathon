@@ -71,7 +71,7 @@ function parseExercisesFromCSV(csvPath) {
               category: row.category,
               difficulty: parseDifficulty(row.difficulty),
               type: row.module, // 'penulisan' or 'kefahaman'
-              exerciseType: row.module === 'penulisan' ? 'writing' : 'comprehension',
+                exerciseType: row.module === 'writing' ? 'writing' : 'comprehension',
               questions: []
             };
           }

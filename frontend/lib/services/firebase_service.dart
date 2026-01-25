@@ -204,8 +204,13 @@ class FirebaseService {
         exerciseData['category'] = _mapCategory(category);
         
         final type = exerciseData['module'] ?? exerciseData['type'] ?? '';
-        exerciseData['exerciseType'] = _mapExerciseType(type);
-        exerciseData['type'] = type;
+          // Always prefer 'module' field which contains the correct values (writing/comprehension)
+          // Don't use 'exerciseType' as it may be incorrect from older seeding
+          final mappedType = _mapExerciseType(type);
+          exerciseData['exerciseType'] = mappedType;
+          exerciseData['type'] = type;
+        
+          print('DEBUG getExercises: ${doc.id} - module="$type" -> exerciseType="$mappedType"');
         
         // Add default values for deprecated fields
         exerciseData['options'] = [];
@@ -223,24 +228,63 @@ class FirebaseService {
   }
   
   String _mapCategory(String category) {
-    final categoryMap = {
-      'haiwan': 'animal',
-      'makanan': 'food',
-      'anggota_badan': 'bodyParts',
-      'badan': 'bodyParts',
-      'kata_kerja': 'verbs',
-    };
-    return categoryMap[category.toLowerCase()] ?? 'animal';
+    // Normalize to handle spaces/underscores/plurals from Firestore
+    final normalized = category
+        .toString()
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[\s_-]+'), '');
+
+    switch (normalized) {
+      case 'animal':
+      case 'animals':
+      case 'haiwan':
+        return 'animal';
+      case 'bodyparts':
+      case 'bodypart':
+      case 'anggotabadan':
+      case 'badan':
+      case 'body':
+        return 'bodyParts';
+      case 'food':
+      case 'foods':
+      case 'makanan':
+        return 'food';
+      case 'verb':
+      case 'verbs':
+      case 'actions':
+      case 'action':
+      case 'katakerja':
+        return 'verbs';
+      default:
+        print('WARN: Unknown category "$category", defaulting to animal');
+        return 'animal';
+    }
   }
   
   String _mapExerciseType(String type) {
-    final typeMap = {
-      'penulisan': 'writing',
-      'kefahaman': 'comprehension',
-      'writing': 'writing',
-      'comprehension': 'comprehension',
-    };
-    return typeMap[type.toLowerCase()] ?? 'writing';
+    // Normalize to handle spaces/underscores/hyphens from Firestore
+    final normalized = type
+        .toString()
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[\s_-]+'), '');
+
+    switch (normalized) {
+      case 'writing':
+      case 'penulisan':
+      case 'write':
+        return 'writing';
+      case 'comprehension':
+      case 'kefahaman':
+      case 'understand':
+      case 'listening':
+      case 'comprehend':
+        return 'comprehension';
+      default:
+        print('WARN: Unknown exercise type "$type", defaulting to writing');
+        return 'writing';
+    }
   }
 
   /// Get exercise by ID

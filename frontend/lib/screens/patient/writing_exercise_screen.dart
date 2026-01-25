@@ -518,28 +518,65 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
     }
   }
 
+  /// Calculate performance level based on recent accuracy
+  String _calculatePerformanceLevel() {
+    if (_correctnessHistory.isEmpty) return 'high';
+    
+    // Use last 10 attempts (or all if fewer)
+    final recentAttempts = _correctnessHistory.length >= 10
+        ? _correctnessHistory.sublist(_correctnessHistory.length - 10)
+        : _correctnessHistory;
+    
+    final accuracy = recentAttempts.fold<int>(0, (sum, x) => sum + x) / recentAttempts.length;
+    
+    if (accuracy < 0.6) return 'low';      // <60% = low performance
+    if (accuracy < 0.8) return 'mild';     // 60-80% = mild performance
+    return 'high';                          // >80% = high performance
+  }
+
+  /// Get cue timing based on performance level (in seconds)
+  int _getCueTimingForPerformance(String performanceLevel, int cueLevel) {
+    // Define timing for each performance level
+    final timingConfigs = {
+      'low': {1: 15, 2: 15, 3: 15, 4: 15, 5: 15, 6: 15, 7: 15},       // 15s intervals
+      'mild': {1: 30, 2: 30, 3: 30, 4: 30, 5: 30, 6: 30, 7: 30},     // 30s intervals
+      'high': {1: 10, 2: 8, 3: 8, 4: 8, 5: 8, 6: 8, 7: 8},           // Normal: 10s then 8s
+    };
+    
+    final config = timingConfigs[performanceLevel] ?? timingConfigs['high']!;
+    return config[cueLevel] ?? 10;
+  }
+
   /// Fallback timer-based cue system (for web or if ML fails)
   void _startCueTimer() {
     final currentQuestion = _currentQuestion;
     if (currentQuestion == null) return;
     final strings = AppStrings(Localizations.localeOf(context).languageCode);
     
-    // Show Function cue after 15 seconds
-    _cueTimer = Timer(const Duration(seconds: 15), () {
+    // Calculate performance level for dynamic timing
+    final performance = _calculatePerformanceLevel();
+    final delay1 = _getCueTimingForPerformance(performance, 1);
+    final delay2 = _getCueTimingForPerformance(performance, 2);
+    final delay3 = _getCueTimingForPerformance(performance, 3);
+    
+    print('DEBUG: Cue timing for $performance performance: ${delay1}s → ${delay2}s → ${delay3}s');
+    
+    // Show Function cue after calculated delay
+    _cueTimer = Timer(Duration(seconds: delay1), () {
       if (!_isSubmitted && mounted && _currentQuestionIndex < widget.exercise.questions.length) {
         setState(() {
           _cueLevel = 1;
           _currentCue = currentQuestion.cueHierarchy?['functional'];
           _currentCueType = 'functional';
-          _cueWaitSeconds = 15; // First cue after 15 seconds
+          _cueWaitSeconds = delay1;
           _hintCount++;
         });
         if (_currentCue != null) {
           _showCue(_getCueTitle(1, strings), _currentCue!);
         }
         
-        // Show Rhyming cue after another 10 seconds
-        _cueTimer = Timer(const Duration(seconds: 10), () {
+        // Show Rhyming cue after another calculated delay
+        _cueTimer = Timer(Duration(seconds: delay2), () {
           if (!_isSubmitted && mounted && _currentQuestionIndex < widget.exercise.questions.length) {
             setState(() {
               _cueLevel = 2;
@@ -551,8 +588,8 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
               _showCue(_getCueTitle(2, strings), _currentCue!);
             }
             
-            // Show Written cue after another 10 seconds
-            _cueTimer = Timer(const Duration(seconds: 10), () {
+            // Show Written cue after another calculated delay
+            _cueTimer = Timer(Duration(seconds: delay3), () {
               if (!_isSubmitted && mounted && _currentQuestionIndex < widget.exercise.questions.length) {
                 setState(() {
                   _cueLevel = 3;
