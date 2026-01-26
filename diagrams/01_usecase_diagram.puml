@@ -1,0 +1,49 @@
+@startuml SpeakSteps_UseCase
+!theme plain
+title SpeakSteps - Use Case Diagram
+
+actor Patient as patient
+actor Therapist as therapist
+actor System as system
+
+rectangle SpeakSteps {
+  usecase "Sign In" as UC1
+  usecase "Sign Up" as UC2
+  usecase "Change Password" as UC3
+  usecase "Select Language" as UC4
+  usecase "View Assigned Modules" as UC5
+  usecase "Complete Exercise" as UC6
+  usecase "Receive Adaptive Cues" as UC7
+  usecase "View Progress Report" as UC8
+  usecase "Create Patient Account" as UC9
+  usecase "Assign Modules" as UC10
+  usecase "Monitor Patient Progress" as UC11
+  usecase "Predict Cue Need" as UC13
+  usecase "Calculate Performance" as UC14
+}
+
+patient --> UC1
+patient --> UC2
+patient --> UC3
+patient --> UC4
+patient --> UC5
+patient --> UC6
+patient --> UC8
+
+therapist --> UC1
+therapist --> UC3
+therapist --> UC9
+therapist --> UC10
+therapist --> UC11
+
+UC6 --> UC7 : triggers
+UC7 --> UC13 : uses
+UC13 --> UC14 : uses
+UC8 --> UC11
+UC10 --> UC5
+UC9 --> UC10
+
+system --> UC13
+system --> UC14
+
+@enduml

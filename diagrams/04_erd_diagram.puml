@@ -1,0 +1,141 @@
+@startuml SpeakSteps_ERD
+!theme plain
+title SpeakSteps - Entity Relationship Diagram
+
+entity "User" {
+  *id : UUID
+  --
+  email : String
+  password_hash : String
+  name : String
+  role : UserRole
+  preferred_language : String
+  created_at : DateTime
+  updated_at : DateTime
+  must_change_password : Boolean
+}
+
+entity "Patient" {
+  *patient_id : UUID
+  --
+  user_id : UUID (FK)
+  diagnosis : String
+  caregiver_name : String
+  caregiver_email : String
+  caregiver_phone : String
+  patient_phone : String
+  assigned_therapist_id : UUID (FK)
+}
+
+entity "Therapist" {
+  *therapist_id : UUID
+  --
+  user_id : UUID (FK)
+  license_number : String
+  specialization : String
+}
+
+entity "PatientProgress" {
+  *progress_id : UUID
+  --
+  patient_id : UUID (FK)
+  overall_score : Float
+  module_progress : JSON
+  last_updated : DateTime
+}
+
+entity "TherapyModule" {
+  *module_id : UUID
+  --
+  name : String
+  description : String
+  difficulty_level : String
+}
+
+entity "PatientModuleAssignment" {
+  *assignment_id : UUID
+  --
+  patient_id : UUID (FK)
+  module_id : UUID (FK)
+  assigned_date : DateTime
+  status : String
+  completion_percentage : Float
+}
+
+entity "Exercise" {
+  *exercise_id : UUID
+  --
+  module_id : UUID (FK)
+  category : String
+  type : String
+  difficulty : String
+  content : JSON
+  created_at : DateTime
+}
+
+entity "ExerciseScore" {
+  *score_id : UUID
+  --
+  patient_id : UUID (FK)
+  exercise_id : UUID (FK)
+  score : Integer
+  attempts_count : Integer
+  hints_used : Integer
+  time_spent_seconds : Integer
+  completed_at : DateTime
+}
+
+entity "ExerciseSession" {
+  *session_id : UUID
+  --
+  patient_id : UUID (FK)
+  exercise_id : UUID (FK)
+  started_at : DateTime
+  completed_at : DateTime
+  total_questions : Integer
+  correct_answers : Integer
+  total_time_seconds : Integer
+}
+
+entity "QuestionResponse" {
+  *response_id : UUID
+  --
+  patient_id : UUID (FK)
+  session_id : UUID (FK)
+  exercise_id : UUID (FK)
+  question_id : String
+  response_text : String
+  correct : Boolean
+  response_time_seconds : Float
+  cue_given : Boolean
+  cue_type : String
+  timestamp : DateTime
+}
+
+entity "CueDecision" {
+  *cue_id : UUID
+  --
+  question_response_id : UUID (FK)
+  cue_type : String
+  cue_stage : Integer
+  performance_level : String
+  created_at : DateTime
+}
+
+User ||--o{ Patient : creates
+User ||--o{ Therapist : creates
+Patient ||--o{ PatientProgress : has
+Patient ||--o{ PatientModuleAssignment : receives
+Therapist ||--o{ PatientModuleAssignment : assigns
+TherapyModule ||--o{ PatientModuleAssignment : contains
+TherapyModule ||--o{ Exercise : includes
+Patient ||--o{ ExerciseScore : earns
+Exercise ||--o{ ExerciseScore : generates
+Patient ||--o{ ExerciseSession : completes
+Exercise ||--o{ ExerciseSession : includes
+Patient ||--o{ QuestionResponse : provides
+ExerciseSession ||--o{ QuestionResponse : records
+Exercise ||--o{ QuestionResponse : contains
+QuestionResponse ||--o{ CueDecision : generates
+
+@enduml

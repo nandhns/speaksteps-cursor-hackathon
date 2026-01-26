@@ -1,0 +1,64 @@
+@startuml SpeakSteps_Sequence
+!theme plain
+title SpeakSteps - Patient Exercise Flow Sequence Diagram
+
+participant Patient as patient
+participant "Frontend\n(Flutter)" as frontend
+participant "Firebase\nAuth" as auth
+participant "Backend API" as api
+participant "Cueing\nEngine" as cueing
+participant "ML\nPredictor" as ml
+participant "Firestore\nDB" as db
+
+patient -> frontend: 1. Sign In
+frontend -> auth: 2. Authenticate
+auth -> db: 3. Verify User
+db --> auth: 4. User Valid
+auth --> frontend: 5. Auth Token
+frontend --> patient: 6. Login Success
+
+patient -> frontend: 7. Select Module & Exercise
+frontend -> api: 8. Get Exercise Details
+api -> db: 9. Query Exercise
+db --> api: 10. Return Exercise Data
+api --> frontend: 11. Display Exercise
+
+patient -> frontend: 12. Attempt Question
+frontend -> api: 13. Submit Response
+
+api -> cueing: 14. Check if Cue Needed\n(response_time, attempts)
+cueing -> db: 15. Get Performance History
+db --> cueing: 16. Return History
+cueing -> ml: 17. Request ML Prediction
+
+ml -> ml: 18. Extract Features\n(19 features)
+ml -> ml: 19. Run TFLite Model
+ml --> cueing: 20. Probability Needed
+
+cueing -> cueing: 21. Combine Rules + ML\nDecide Cue
+cueing --> api: 22. Cue Decision\n(type, stage, reasoning)
+
+api -> db: 23. Save Response\n& Decision
+db --> api: 24. Saved
+
+api --> frontend: 25. Return Cue\n(if needed)
+
+frontend --> patient: 26. Display Cue/Feedback
+note right of patient: If cue given:\n- Functional (item's use)\n- Rhyming word\n- Written initial (first letter)\n- Spelling hints\n- Sentence completion\n- Phonemic (sound)\n- Modeling (full answer)
+
+patient -> frontend: 27. Attempt Again\n(if needed)
+frontend -> api: 28. Submit Next Response
+api -> db: 29. Save Score & Track Progress
+db --> api: 30. Updated
+
+api --> frontend: 31. Next Question\nor Session Complete
+frontend --> patient: 32. Show Progress
+
+patient -> frontend: 33. View Session Summary
+frontend -> api: 34. Get Session Stats
+api -> db: 35. Calculate Performance
+db --> api: 36. Return Stats\n(accuracy, time, cues used)
+api --> frontend: 37. Display Dashboard
+frontend --> patient: 38. Show Results
+
+@enduml

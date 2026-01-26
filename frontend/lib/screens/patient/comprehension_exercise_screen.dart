@@ -238,6 +238,19 @@ class _ComprehensionExerciseScreenState
   /// ML PREDICTION & CUE DISPLAY
   /// ============================================================================
 
+  /// Determine cue timing based on patient performance
+  /// Returns (firstCueSeconds, gapBetweenCuesSeconds)
+  (int, int) _getCueTimingByPerformance() {
+    final recentAcc = _getRecentAccuracyRate();
+    // Severe case (bad performance): < 40% accuracy - 15s intervals
+    // Mild case (good performance): >= 40% accuracy - 30s intervals
+    if (recentAcc < 0.4) {
+      return (15, 15); // Severe: first cue at 15s, gap 15s
+    } else {
+      return (30, 30); // Mild: first cue at 30s, gap 30s
+    }
+  }
+
   @override
 
   void dispose() {
@@ -286,6 +299,17 @@ class _ComprehensionExerciseScreenState
 
     // Calculate response time
     final responseTime = DateTime.now().difference(_questionStartTime!).inSeconds.toDouble();
+    
+    // Get adaptive cue timing based on performance
+    final (firstCueMinSeconds, cueGapMinSeconds) = _getCueTimingByPerformance();
+    
+    // Prevent rapid cue display - enforce minimum gap between cues
+    if (_lastCueShownAt != null) {
+      final timeSinceLastCue = DateTime.now().difference(_lastCueShownAt!).inSeconds;
+      if (timeSinceLastCue < cueGapMinSeconds) {
+        return; // Don't show next cue yet
+      }
+    }
     
     // Get current time of day
     final hour = DateTime.now().hour;
@@ -372,16 +396,16 @@ class _ComprehensionExerciseScreenState
         return; // ML says patient doesn't need help yet
       }
       
-      // Enforce minimum wait time before first cue (10 seconds - hierarchical timing)
-      if (_cueLevel == 0 && responseTime < 10) {
-        return; // Don't show first cue until at least 10 seconds
+      // Enforce minimum wait time before first cue (adaptive based on performance)
+      if (_cueLevel == 0 && responseTime < firstCueMinSeconds) {
+        return; // Don't show first cue until minimum threshold
       }
       
-      // Enforce minimum gap between cues (10 seconds - hierarchical timing)
+      // Enforce minimum gap between cues (adaptive based on performance)
       if (_lastCueShownAt != null) {
         final timeSinceLastCue = DateTime.now().difference(_lastCueShownAt!).inSeconds;
-        if (timeSinceLastCue < 10) {
-          return; // Wait at least 10 seconds between cues
+        if (timeSinceLastCue < cueGapMinSeconds) {
+          return; // Wait at least the minimum gap between cues
         }
       }
       
@@ -617,6 +641,23 @@ class _ComprehensionExerciseScreenState
         print('Stack trace: $stackTrace');
       }
     });
+  }
+
+  /// Extract word from image path (e.g., "images/kucing.png" -> "kucing")
+  String _extractWordFromImagePath(String imagePath) {
+    if (imagePath.isEmpty) return '';
+    
+    // Remove "images/" prefix and file extension
+    String word = imagePath
+        .replaceAll('images/', '')
+        .replaceAll('.png', '')
+        .replaceAll('.jpg', '')
+        .replaceAll('.jpeg', '');
+    
+    // Replace underscores with spaces for multi-word items
+    word = word.replaceAll('_', ' ');
+    
+    return word;
   }
 
   /// Build image widget with fallback to placeholder
@@ -957,25 +998,22 @@ class _ComprehensionExerciseScreenState
                             ),
                       ),
                       const SizedBox(height: 16),
-                      // Display the image to match
+                      // Display the word (extract from image filename)
                       Container(
-                        width: 150,
-                        height: 150,
+                        constraints: const BoxConstraints(maxWidth: 500),
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
                         decoration: BoxDecoration(
+                          color: Colors.white,
                           border: Border.all(color: Colors.purple.shade300, width: 2),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Image.asset(
-                          currentQuestion?.correctAnswer ?? widget.exercise.correctAnswer ?? '',
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Center(
-                              child: Text(
-                                'Image not found',
-                                style: TextStyle(color: Colors.grey.shade700),
-                              ),
-                            );
-                          },
+                        child: Text(
+                          _extractWordFromImagePath(currentQuestion?.correctAnswer ?? ''),
+                          style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.purple.shade900,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
                       ),
                     ],

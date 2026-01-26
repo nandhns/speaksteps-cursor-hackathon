@@ -1,0 +1,53 @@
+@startuml SpeakSteps_State
+!theme plain
+title SpeakSteps - Patient Exercise Session State Diagram
+
+[*] --> NotAuthenticated
+
+NotAuthenticated --> Authenticating : sign in/sign up
+Authenticating --> Authenticated : valid credentials
+Authenticating --> NotAuthenticated : invalid credentials
+
+Authenticated --> SelectingModule : user logged in
+
+SelectingModule --> SelectingExercise : module chosen
+SelectingExercise --> AttemptingQuestion : exercise loaded
+
+state "Exercise Session" as session {
+  AttemptingQuestion --> EvaluatingResponse : submit answer
+  
+  EvaluatingResponse --> CorrectAnswer : correct\n[high performance]
+  EvaluatingResponse --> ProvidingCue : incorrect or slow\n[needs support]
+  
+  CorrectAnswer --> NextQuestion : save score
+  
+  ProvidingCue --> AttemptingQuestion : display cue\n[retry with support]
+  ProvidingCue --> NextQuestion : max cue given\n[modeling shown]
+  
+  NextQuestion --> AttemptingQuestion : more questions
+  NextQuestion --> SessionComplete : all done
+}
+
+SessionComplete --> ViewingProgress : display session stats
+
+ViewingProgress --> SelectingModule : continue therapy
+ViewingProgress --> [*] : sign out
+Authenticated --> [*] : sign out
+
+note right of EvaluatingResponse
+  Cue Decision (Rules + ML):
+  • Analyze response time & attempts
+  • Check performance history
+  • ML predicts cue probability
+  • Select cue level (1-7)
+end note
+
+note right of ProvidingCue
+  Cue Hierarchy (escalating):
+  1. Functional → 2. Rhyming
+  3. Written → 4. Spelling
+  5. Sentence → 6. Phonemic
+  7. Modeling (full answer)
+end note
+
+@enduml

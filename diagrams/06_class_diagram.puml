@@ -1,0 +1,172 @@
+@startuml SpeakSteps_Classes
+!theme plain
+title SpeakSteps - Class Diagram
+
+package "Models" {
+  class User {
+    - id: UUID
+    - email: String
+    - password_hash: String
+    - name: String
+    - role: UserRole
+    - preferred_language: String
+    - must_change_password: Boolean
+    + signIn(email, password): bool
+    + signUp(email, password, name, role): bool
+    + changePassword(old, new): bool
+    + updateLanguage(language): void
+  }
+
+  enum UserRole {
+    PATIENT
+    THERAPIST
+  }
+
+  class Patient {
+    - patient_id: UUID
+    - user_id: UUID
+    - diagnosis: String
+    - caregiver_name: String
+    - assigned_therapist_id: UUID
+    + getAssignedModules(): List<TherapyModule>
+    + completeExercise(exercise): void
+    + getProgress(): PatientProgress
+  }
+
+  class Therapist {
+    - therapist_id: UUID
+    - user_id: UUID
+    - license_number: String
+    + assignModule(patient, module): void
+    + monitorProgress(patient): PatientProgress
+  }
+
+  class TherapyModule {
+    - module_id: UUID
+    - name: String
+    - description: String
+    - exercises: List<Exercise>
+    + getExercises(): List<Exercise>
+  }
+
+  class Exercise {
+    - exercise_id: UUID
+    - module_id: UUID
+    - category: String
+    - type: String
+    - difficulty: String
+    + getQuestions(): List<Question>
+  }
+
+  class ExerciseScore {
+    - score_id: UUID
+    - patient_id: UUID
+    - exercise_id: UUID
+    - score: Integer
+    - attempts_count: Integer
+    - time_spent_seconds: Integer
+    + calculateAccuracy(): Float
+  }
+
+  class PatientProgress {
+    - progress_id: UUID
+    - patient_id: UUID
+    - overall_score: Float
+    + updateProgress(score): void
+    + getModuleProgress(module): Float
+  }
+}
+
+package "Services" {
+  class AuthProvider {
+    - current_user: User
+    - is_loading: Boolean
+    + signIn(email, password): Future<bool>
+    + signUp(email, password, name, role): Future<bool>
+    + signOut(): Future<void>
+    + loadUser(id): Future<void>
+    + notifyListeners(): void
+  }
+
+  class LanguageProvider {
+    - locale: Locale
+    - language_code: String
+    + setLanguage(code): Future<void>
+    + supportsLocale(locale): bool
+    + notifyListeners(): void
+  }
+
+  class AppService <<interface>> {
+    + signInWithEmail(email, password): Future<bool>
+    + getExercises(): Future<List<Exercise>>
+    + saveExerciseScore(score): Future<void>
+    + getPatientScores(id): Future<List<ExerciseScore>>
+    + saveQuestionResponse(response): Future<void>
+  }
+
+  class FirebaseService {
+    - firebase_auth: FirebaseAuth
+    - firestore: FirebaseFirestore
+    + signInWithEmail(email, password): Future<bool>
+    + getExercises(): Future<List<Exercise>>
+  }
+}
+
+package "Backend - Cueing Engine" {
+  class CueingEngine {
+    - cue_hierarchy: List<CueType>
+    - performance_timings: Map
+    + decideCueRules(features): Tuple<CueType, int>
+    + calculatePerformanceLevel(history): String
+    + getCueTiming(type, level): int
+  }
+
+  enum CueType {
+    NO_CUE
+    FUNCTIONAL
+    RHYMING
+    WRITTEN_INITIAL
+    SPELLING
+    SENTENCE_COMPLETION
+    PHONEMIC
+    MODELING
+  }
+
+  class PerformanceCalculator {
+    + calculate_performance_level(correctness): String
+    + get_accuracy_percentage(history): Float
+  }
+}
+
+package "Backend - ML" {
+  class MLPredictor {
+    - interpreter: TFLiteInterpreter
+    - scaler: StandardScaler
+    - feature_columns: List<String>
+    + load_model(): bool
+    + prepare_features(dict): ndarray
+    + predict(features): Tuple<float, int>
+  }
+
+  class FeatureExtractor {
+    + extract_features(response): dict
+    + normalize_features(features): ndarray
+  }
+}
+
+User <|-- Patient
+User <|-- Therapist
+Patient "1" --> "many" ExerciseScore
+Patient "1" --> "1" PatientProgress
+Exercise "1" --> "many" ExerciseScore
+TherapyModule "1" --> "many" Exercise
+
+AuthProvider --> User
+LanguageProvider --> AppService
+AppService <|-- FirebaseService
+
+CueingEngine --> CueType
+CueingEngine --> PerformanceCalculator
+MLPredictor --> FeatureExtractor
+
+@enduml

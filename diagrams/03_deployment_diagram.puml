@@ -1,0 +1,44 @@
+@startuml SpeakSteps_Deployment
+!theme plain
+title SpeakSteps - Deployment Diagram
+
+node "Client Devices" {
+  artifact "Web App\n(Flutter Web)" as web_app
+  artifact "Mobile App\n(iOS/Android)" as mobile_app
+}
+
+database "Firestore\n(NoSQL DB)" as firestore
+component "Firebase Auth\n(Authentication)" as auth
+component "Cloud Functions\n(Serverless)" as functions
+artifact "Storage\n(Images)" as storage
+
+node "Backend Server\n(Python)" {
+  component "Cueing Engine\n(Rule-based)" as cueing
+  component "ML Predictor\n(TFLite)" as ml
+  component "API Gateway" as gateway
+}
+
+node "External Services" {
+  artifact "Email Service\n(SendGrid)" as email_service
+}
+
+web_app --> auth : authenticate
+mobile_app --> auth : authenticate
+
+web_app --> gateway : REST API
+mobile_app --> gateway : REST API
+
+gateway --> firestore : read/write
+gateway --> cueing : cue decision
+cueing --> ml : prediction
+gateway --> storage : file access
+
+cueing --> firestore : query data
+ml --> firestore : query data
+
+functions --> email_service : send emails
+gateway --> functions : trigger
+
+ 
+
+@enduml

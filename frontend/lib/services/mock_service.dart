@@ -114,6 +114,7 @@ class MockService {
     List<String> correctAnswers,
     List<List<String>> wrongOptionsList,
     List<Map<String, String>> cueHierarchies,
+    {List<String>? stimulusTexts}
   ) {
     return List.generate(correctAnswers.length, (index) {
       return ExerciseQuestion(
@@ -121,6 +122,9 @@ class MockService {
         correctAnswer: correctAnswers[index],
         imageOptions: wrongOptionsList[index],
         cueHierarchy: cueHierarchies[index],
+        stimulusText: stimulusTexts != null && index < stimulusTexts.length 
+            ? stimulusTexts[index] 
+            : 'Select the image that matches',
       );
     });
   }

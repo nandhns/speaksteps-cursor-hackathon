@@ -14,6 +14,7 @@ class ExerciseQuestion {
   final String id;
   final String? imageUrl;
   final String? audioUrl;
+  final String? stimulusText; // For comprehension exercises - the text/description shown to user
   final String correctAnswer;
   final List<String>? options; // For comprehension exercises
   final List<String>? imageOptions; // For comprehension exercises
@@ -23,6 +24,7 @@ class ExerciseQuestion {
     required this.id,
     this.imageUrl,
     this.audioUrl,
+    this.stimulusText,
     required this.correctAnswer,
     this.options,
     this.imageOptions,
@@ -81,8 +83,7 @@ class Exercise {
       'questions': questions.map((q) => {
         'id': q.id,
         'imageUrl': q.imageUrl,
-        'audioUrl': q.audioUrl,
-        'correctAnswer': q.correctAnswer,
+        'audioUrl': q.audioUrl,        'stimulusText': q.stimulusText,        'correctAnswer': q.correctAnswer,
         'options': q.options,
         'imageOptions': q.imageOptions,
         'cueHierarchy': q.cueHierarchy,
@@ -120,6 +121,7 @@ class Exercise {
                 id: q['id'] ?? '',
                 imageUrl: q['imageUrl'],
                 audioUrl: q['audioUrl'],
+                stimulusText: q['stimulusText'],
             // Coerce to string to handle numeric values stored in Firestore
             correctAnswer: q['correctAnswer']?.toString() ?? '',
             options: q['options'] != null

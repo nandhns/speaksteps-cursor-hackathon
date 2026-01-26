@@ -164,6 +164,19 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
   /// 24-FEATURE ML MODEL HELPERS
   /// ============================================================================
 
+  /// Determine cue timing based on patient performance
+  /// Returns (firstCueSeconds, gapBetweenCuesSeconds)
+  (int, int) _getCueTimingByPerformance() {
+    final recentAcc = _getRecentAccuracyRate();
+    // Severe case (bad performance): < 40% accuracy - 15s intervals
+    // Mild case (good performance): >= 40% accuracy - 30s intervals
+    if (recentAcc < 0.4) {
+      return (15, 15); // Severe: first cue at 15s, gap 15s
+    } else {
+      return (30, 30); // Mild: first cue at 30s, gap 30s
+    }
+  }
+
   /// Calculate rolling average of last N response times
   double _getResponseTimeRollingAvg({int windowSize = 5}) {
     if (_responseTimes.isEmpty) return 0.0;
@@ -279,10 +292,13 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
     // Calculate response time
     final responseTime = DateTime.now().difference(_questionStartTime!).inSeconds.toDouble();
     
-    // Prevent rapid cue display - ensure at least 10 seconds between cues
+    // Get adaptive cue timing based on performance
+    final (firstCueMinSeconds, cueGapMinSeconds) = _getCueTimingByPerformance();
+    
+    // Prevent rapid cue display - enforce minimum gap between cues
     if (_lastCueShownAt != null) {
       final timeSinceLastCue = DateTime.now().difference(_lastCueShownAt!).inSeconds;
-      if (timeSinceLastCue < 10) {
+      if (timeSinceLastCue < cueGapMinSeconds) {
         return; // Don't show next cue yet
       }
     }
@@ -397,16 +413,16 @@ class _WritingExerciseScreenState extends State<WritingExerciseScreen> {
         return; // ML says patient doesn't need help yet
       }
       
-      // Enforce minimum wait time before first cue (10 seconds - hierarchical timing)
-      if (_cueLevel == 0 && responseTime < 10) {
-        return; // Don't show first cue until at least 10 seconds
+      // Enforce minimum wait time before first cue (adaptive based on performance)
+      if (_cueLevel == 0 && responseTime < firstCueMinSeconds) {
+        return; // Don't show first cue until minimum threshold
       }
       
-      // Enforce minimum gap between cues (10 seconds - hierarchical timing)
+      // Enforce minimum gap between cues (adaptive based on performance)
       if (_lastCueShownAt != null) {
         final timeSinceLastCue = DateTime.now().difference(_lastCueShownAt!).inSeconds;
-        if (timeSinceLastCue < 10) {
-          return; // Wait at least 10 seconds between cues
+        if (timeSinceLastCue < cueGapMinSeconds) {
+          return; // Wait at least the minimum gap between cues
         }
       }
       

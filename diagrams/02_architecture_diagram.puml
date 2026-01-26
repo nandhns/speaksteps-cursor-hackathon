@@ -1,0 +1,78 @@
+@startuml SpeakSteps_Architecture
+!theme plain
+title SpeakSteps - Conceptual Architecture Diagram
+
+package "Mobile/Web/Desktop Client" {
+  component "Flutter Frontend" as frontend {
+    component "Auth Screen" as auth
+    component "Exercise Module" as exercise
+    component "Progress Dashboard" as progress
+    component "Language Support" as lang
+  }
+}
+
+package "Network Layer" {
+  component "REST API" as api
+}
+
+package "Firebase Platform" {
+  component "Firebase Auth" as firebase_auth
+  component "Cloud Firestore" as firestore
+  component "Cloud Functions" as functions
+}
+
+package "Backend Services" {
+  component "Cueing Engine" as cueing {
+    component "Rule-Based Cue Logic" as rules
+    component "Performance Calculator" as perf_calc
+  }
+  
+  component "ML Service" as ml {
+    component "TFLite Model" as tflite
+    component "Feature Extractor" as features
+  }
+}
+
+package "Data Layer" {
+  database "Firestore DB" as db
+  database "Scaler Model" as scaler
+}
+
+package "External Services" {
+  component "Email Service" as email
+}
+
+frontend --> auth
+frontend --> exercise
+frontend --> progress
+frontend --> lang
+
+auth --> api
+exercise --> api
+progress --> api
+
+api --> firebase_auth
+api --> firestore
+api --> functions
+api --> cueing
+
+firebase_auth -.-> db
+
+cueing --> rules
+cueing --> perf_calc
+cueing --> firestore
+cueing --> ml
+
+ml --> tflite
+ml --> features
+ml --> scaler
+
+
+
+
+functions --> email
+cueing --> email
+
+firestore --> db
+
+@enduml
