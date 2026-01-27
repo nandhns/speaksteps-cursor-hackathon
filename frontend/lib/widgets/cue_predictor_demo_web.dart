@@ -65,7 +65,11 @@ class _CuePredictorDemoWebState extends State<CuePredictorDemoWeb> {
     try {
       final input = CuePredictorInput.fromSimple(
         responseTimeSeconds: _responseTime,
+        responseTimeRollingAvg: _responseTime,
         hintCount: _attempts,
+        hintsUsedRatio: _attempts > 0 ? 0.5 : 0.0,
+        consecutiveIncorrect: 0.0,
+        consecutiveCorrect: 0.0,
         difficulty: _difficulty,
         isMobile: !kIsWeb,
         therapistLevel: _therapistLevel,
@@ -74,6 +78,9 @@ class _CuePredictorDemoWebState extends State<CuePredictorDemoWeb> {
         timeOfDay: _getTimeOfDay(),
         module: _module,
         category: _category,
+        exerciseDurationNormalized: 0.5,
+        sessionProgressRatio: 0.5,
+        recentAccuracyRate: 0.75,
       );
 
       final result = _predictor.predict(input);

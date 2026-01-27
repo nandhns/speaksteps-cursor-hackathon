@@ -2,24 +2,37 @@
 !theme plain
 title SpeakSteps - Use Case Diagram
 
+top to bottom direction
+
 actor Patient as patient
 actor Therapist as therapist
 actor System as system
 
 rectangle SpeakSteps {
-  usecase "Sign In" as UC1
-  usecase "Sign Up" as UC2
-  usecase "Change Password" as UC3
-  usecase "Select Language" as UC4
-  usecase "View Assigned Modules" as UC5
-  usecase "Complete Exercise" as UC6
-  usecase "Receive Adaptive Cues" as UC7
-  usecase "View Progress Report" as UC8
-  usecase "Create Patient Account" as UC9
-  usecase "Assign Modules" as UC10
-  usecase "Monitor Patient Progress" as UC11
-  usecase "Predict Cue Need" as UC13
-  usecase "Calculate Performance" as UC14
+  package "Authentication" {
+    usecase "Sign In" as UC1
+    usecase "Sign Up" as UC2
+    usecase "Change Password" as UC3
+    usecase "Select Language" as UC4
+  }
+  
+  package "Patient Activities" {
+    usecase "View Assigned Modules" as UC5
+    usecase "Complete Exercise" as UC6
+    usecase "Receive Adaptive Cues" as UC7
+    usecase "View Progress Report" as UC8
+  }
+  
+  package "Therapist Activities" {
+    usecase "Create Patient Account" as UC9
+    usecase "Assign Modules" as UC10
+    usecase "Monitor Patient Progress" as UC11
+  }
+  
+  package "System Operations" {
+    usecase "Predict Cue Need" as UC13
+    usecase "Calculate Performance" as UC14
+  }
 }
 
 patient --> UC1

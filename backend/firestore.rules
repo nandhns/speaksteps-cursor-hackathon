@@ -48,22 +48,22 @@ service cloud.firestore {
     // /users/{userId}
     // =========================================================================
     match /users/{userId} {
-      // Users can read their own document
-      // Therapists can read their assigned patients
-      allow read: if isAuthenticated() && (
-        request.auth.uid == userId ||
-        (isTherapist() && get(/databases/$(database)/documents/users/$(userId)).data.get('therapistId') == request.auth.uid)
-      );
+      // Users can ALWAYS read their own document (no function calls to avoid circular dependencies)
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Therapists can also read their assigned patients
+      allow read: if isAuthenticated() && 
+                     get(/databases/$(database)/documents/users/$(userId)).data.get('therapistId') == request.auth.uid;
       
       // Users can create their own document during signup
       allow create: if isAuthenticated() && request.auth.uid == userId;
       
       // Users can update their own document
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+      
       // Therapists can update their assigned patients
-      allow update: if isAuthenticated() && (
-        request.auth.uid == userId ||
-        (isTherapist() && get(/databases/$(database)/documents/users/$(userId)).data.get('therapistId') == request.auth.uid)
-      );
+      allow update: if isAuthenticated() && 
+                       get(/databases/$(database)/documents/users/$(userId)).data.get('therapistId') == request.auth.uid;
       
       // Users can delete their own document
       allow delete: if isAuthenticated() && request.auth.uid == userId;

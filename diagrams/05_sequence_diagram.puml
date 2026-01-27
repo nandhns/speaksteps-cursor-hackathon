@@ -1,9 +1,11 @@
 @startuml SpeakSteps_Sequence
 !theme plain
-title SpeakSteps - Patient Exercise Flow Sequence Diagram
+title SpeakSteps - Patient & Therapist Flow Sequence Diagram
 
 participant Patient as patient
+participant Therapist as therapist
 participant "Frontend\n(Flutter)" as frontend
+participant "Therapist Portal\n(Web)" as therapistPortal
 participant "Firebase\nAuth" as auth
 participant "Backend API" as api
 participant "Cueing\nEngine" as cueing
@@ -60,5 +62,50 @@ api -> db: 35. Calculate Performance
 db --> api: 36. Return Stats\n(accuracy, time, cues used)
 api --> frontend: 37. Display Dashboard
 frontend --> patient: 38. Show Results
+
+== Therapist Management & Review ==
+
+therapist -> therapistPortal: 39. Sign In
+therapistPortal -> auth: 40. Authenticate
+auth -> db: 41. Verify User (role=therapist)
+db --> auth: 42. User Valid
+auth --> therapistPortal: 43. Auth Token
+therapistPortal --> therapist: 44. Login Success
+
+therapist -> therapistPortal: 45. Select Patient
+therapistPortal -> db: 46. Query Patient Profile & Progress
+db --> therapistPortal: 47. Return Patient Data
+
+therapist -> therapistPortal: 48. Assign/Adjust Modules
+therapistPortal -> api: 49. Upsert Assignment
+api -> db: 50. Save Assignment
+db --> api: 51. Saved
+api --> therapistPortal: 52. Confirm Assignment
+
+therapist -> therapistPortal: 53. View Live/Recent Sessions
+therapistPortal -> db: 54. Fetch Session Summaries
+db --> therapistPortal: 55. Return Stats
+
+therapist -> therapistPortal: 56. Review Cue Decisions
+therapistPortal -> api: 57. Get Cue Audit Trail
+api -> db: 58. Query Cue/Response History
+db --> api: 59. History
+api --> therapistPortal: 60. Return Audit
+
+therapist -> therapistPortal: 61. Update Cue Parameters\n(rules thresholds)
+therapistPortal -> api: 62. Save Cue Config
+api -> db: 63. Persist Config
+db --> api: 64. Saved
+api --> cueing: 65. Reload Config
+
+therapist -> therapistPortal: 66. Export/Share Patient Report
+therapistPortal -> api: 67. Generate Report
+api -> db: 68. Gather Data
+db --> api: 69. Data Ready
+api --> therapistPortal: 70. Report Link/PDF
+
+opt Therapist monitoring
+	db --> therapistPortal: Realtime Snapshot Update\n(session progress, cues used)
+end
 
 @enduml

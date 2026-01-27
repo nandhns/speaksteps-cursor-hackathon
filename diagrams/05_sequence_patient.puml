@@ -1,0 +1,70 @@
+@startuml SpeakSteps_Patient_Sequence
+!theme plain
+title SpeakSteps - Patient Exercise Flow Sequence Diagram
+
+participant Patient as patient
+participant "Frontend\n(Flutter)" as frontend
+participant "Firebase\nAuth" as auth
+participant "Backend API" as api
+participant "Cueing\nEngine" as cueing
+participant "Performance\nCalculator" as perf
+participant "ML\nPredictor" as ml
+participant "Firestore\nDB" as db
+
+patient -> frontend: 1. Sign In
+frontend -> auth: 2. Authenticate
+auth -> db: 3. Verify User
+db --> auth: 4. User Valid
+auth --> frontend: 5. Auth Token
+frontend --> patient: 6. Login Success
+
+patient -> frontend: 7. Select Module & Exercise
+frontend -> api: 8. Get Exercise Details
+api -> db: 9. Query Exercise
+db --> api: 10. Return Exercise Data
+api --> frontend: 11. Display Exercise
+
+patient -> frontend: 12. Attempt Question
+frontend -> api: 13. Submit Response
+
+api -> cueing: 14. Send Response\n(text, response_time, attempts)
+
+cueing -> perf: 15. Calculate Score
+perf -> perf: 16. Evaluate Correctness\n& Performance Metrics
+perf --> cueing: 17. Return Score & Metrics
+
+cueing -> db: 18. Get Performance History
+db --> cueing: 19. Return History
+
+cueing -> ml: 20. Request ML Prediction\n(19 features)
+ml -> ml: 21. Extract Features
+ml -> ml: 22. Run TFLite Model
+ml --> cueing: 23. Return Probability\n(cue needed)
+
+cueing -> cueing: 24. Apply Rule:\nIF (low performance\nOR ML probability > threshold)\nTHEN escalate cue stage
+cueing --> api: 25. Cue Decision\n(type, stage, reasoning)
+
+api --> frontend: 26. Return Cue\n(if needed)
+frontend --> patient: 27. Display Cue/Feedback
+
+api -> db: 28. Log Response\n& Decision
+db --> api: 29. Logged
+
+note right of patient: If cue given:\n- Functional (item's use)\n- Rhyming word\n- Written initial (first letter)\n- Spelling hints\n- Sentence completion\n- Phonemic (sound)\n- Modeling (full answer)
+
+patient -> frontend: 30. Attempt Again\n(if needed)
+frontend -> api: 31. Submit Next Response
+api -> db: 32. Save Score & Track Progress
+db --> api: 33. Updated
+
+api --> frontend: 34. Next Question\nor Session Complete
+frontend --> patient: 35. Show Progress
+
+patient -> frontend: 36. View Session Summary
+frontend -> api: 37. Get Session Stats
+api -> db: 38. Calculate Performance
+db --> api: 39. Return Stats\n(accuracy, time, cues used)
+api --> frontend: 40. Display Dashboard
+frontend --> patient: 41. Show Results
+
+@enduml

@@ -120,6 +120,36 @@ class UserModel {
       modules = null;
     }
     
+    // Helper function to parse DateTime from various formats
+    DateTime _parseDateTime(dynamic value) {
+      if (value == null) return DateTime.now();
+      
+      // Handle Firestore Timestamp objects
+      if (value is String) {
+        try {
+          return DateTime.parse(value);
+        } catch (e) {
+          print('⚠️ Failed to parse DateTime string: $value');
+          return DateTime.now();
+        }
+      }
+      
+      // Handle Timestamp-like objects (have toDate() method)
+      if (value.runtimeType.toString().contains('Timestamp')) {
+        try {
+          // Try to call toDate() if it exists
+          if (value.toDate is Function) {
+            return value.toDate();
+          }
+        } catch (e) {
+          print('⚠️ Failed to convert Timestamp: $e');
+        }
+      }
+      
+      // Fallback to current time
+      return DateTime.now();
+    }
+    
     return UserModel(
       id: map['id'] ?? '',
       email: map['email'] ?? '',
@@ -128,9 +158,7 @@ class UserModel {
         (e) => e.name == map['role'],
         orElse: () => UserRole.patient,
       ),
-      createdAt: map['createdAt'] != null
-          ? DateTime.parse(map['createdAt'])
-          : DateTime.now(),
+      createdAt: _parseDateTime(map['createdAt']),
       diagnosis: map['diagnosis'],
       patientPhone: map['patientPhone'],
       caregiverName: map['caregiverName'],

@@ -1,0 +1,64 @@
+@startuml SpeakSteps_Therapist_Sequence
+!theme plain
+title SpeakSteps - Therapist Management & Review Sequence Diagram
+
+participant Therapist as therapist
+participant "Therapist Portal\n(Web)" as portal
+participant "Firebase\nAuth" as auth
+participant "Backend API" as api
+participant "Cueing\nEngine" as cueing
+participant "ML\nPredictor" as ml
+participant "Firestore\nDB" as db
+
+therapist -> portal: 1. Sign In
+portal -> auth: 2. Authenticate
+auth -> db: 3. Verify User (role=therapist)
+db --> auth: 4. User Valid
+auth --> portal: 5. Auth Token
+portal --> therapist: 6. Login Success
+
+therapist -> portal: 7. Select Patient
+portal -> db: 8. Query Patient Profile & Progress
+db --> portal: 9. Return Patient Data
+
+therapist -> portal: 10. Assign/Adjust Modules
+portal -> api: 11. Upsert Assignment
+api -> db: 12. Save Assignment
+db --> api: 13. Saved
+api --> portal: 14. Confirm Assignment
+
+therapist -> portal: 15. Request Progress & Analytics
+portal -> api: 16. Query ExerciseSessions
+api -> db: 17. Fetch Session Data
+db --> api: 18. Return Raw Session Data
+
+api -> api: 19. Aggregate Stats\n(accuracy, time, cues used,\ntrends, charts)
+api --> portal: 20. Return Aggregated Stats\n& Summaries
+
+portal --> therapist: 21. Render Analytics\n& Progress Charts
+
+portal --> therapist: 21. Render Analytics\n& Progress Charts
+
+therapist -> portal: 22. Review Cue Decisions
+portal -> api: 23. Get Cue Audit Trail
+api -> db: 24. Query Cue/Response History
+db --> api: 25. History
+api --> portal: 26. Return Audit
+
+therapist -> portal: 27. Update Cue Parameters\n(rules thresholds)
+portal -> api: 28. Save Cue Config
+api -> db: 29. Persist Config
+db --> api: 30. Saved
+api --> cueing: 31. Reload Config
+
+therapist -> portal: 32. Export/Share Patient Report
+portal -> api: 33. Generate Report
+api -> db: 34. Gather Data
+db --> api: 35. Data Ready
+api --> portal: 36. Report Link/PDF
+
+opt Realtime monitoring
+  db --> portal: Snapshot Update\n(session progress, cues used)
+end
+
+@enduml

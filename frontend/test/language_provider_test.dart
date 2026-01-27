@@ -10,36 +10,37 @@ void main() {
       languageProvider = LanguageProvider();
     });
 
-    test('Default language is English', () {
-      expect(languageProvider.locale, const Locale('en'));
-      expect(languageProvider.languageCode, 'en');
-    });
-
-    test('Can change to Bahasa Melayu', () async {
-      await languageProvider.setLanguage('ms');
-      
+    test('Default language is Bahasa Melayu', () {
       expect(languageProvider.locale, const Locale('ms'));
-      expect(languageProvider.languageCode, 'ms');
     });
 
-    test('Can change back to English', () async {
-      await languageProvider.setLanguage('ms');
-      expect(languageProvider.languageCode, 'ms');
+    test('Can change to English', () async {
+      await languageProvider.setLocale(const Locale('en'));
       
-      await languageProvider.setLanguage('en');
-      expect(languageProvider.languageCode, 'en');
+      expect(languageProvider.locale, const Locale('en'));
+    });
+
+    test('Can change back to Bahasa Melayu', () async {
+      await languageProvider.setLocale(const Locale('en'));
+      expect(languageProvider.locale, const Locale('en'));
+      
+      await languageProvider.setLocale(const Locale('ms'));
+      expect(languageProvider.locale, const Locale('ms'));
     });
 
     test('Supports English locale', () {
-      expect(languageProvider.supportsLocale(const Locale('en')), true);
+      expect(LanguageProvider.supportedLocales.contains(const Locale('en')), true);
     });
 
     test('Supports Malay locale', () {
-      expect(languageProvider.supportsLocale(const Locale('ms')), true);
+      expect(LanguageProvider.supportedLocales.contains(const Locale('ms')), true);
     });
 
-    test('Does not support unsupported locale', () {
-      expect(languageProvider.supportsLocale(const Locale('fr')), false);
+    test('Does not support unsupported locale in setLocale', () async {
+      await languageProvider.setLocale(const Locale('ms'));
+      // Try to set to unsupported locale - it should not change
+      await languageProvider.setLocale(const Locale('fr'));
+      expect(languageProvider.locale, const Locale('ms'));
     });
 
     test('Language change notifies listeners', () async {
@@ -48,39 +49,39 @@ void main() {
         notified = true;
       });
       
-      await languageProvider.setLanguage('ms');
+      await languageProvider.setLocale(const Locale('en'));
       
       expect(notified, true);
     });
 
     test('Multiple language changes work correctly', () async {
-      expect(languageProvider.languageCode, 'en');
+      expect(languageProvider.locale, const Locale('ms'));
       
-      await languageProvider.setLanguage('ms');
-      expect(languageProvider.languageCode, 'ms');
+      await languageProvider.setLocale(const Locale('en'));
+      expect(languageProvider.locale, const Locale('en'));
       
-      await languageProvider.setLanguage('en');
-      expect(languageProvider.languageCode, 'en');
+      await languageProvider.setLocale(const Locale('ms'));
+      expect(languageProvider.locale, const Locale('ms'));
       
-      await languageProvider.setLanguage('ms');
-      expect(languageProvider.languageCode, 'ms');
+      await languageProvider.setLocale(const Locale('en'));
+      expect(languageProvider.locale, const Locale('en'));
     });
 
     test('Locale getter returns correct Locale object', () async {
-      await languageProvider.setLanguage('en');
+      await languageProvider.setLocale(const Locale('en'));
       expect(languageProvider.locale.languageCode, 'en');
       
-      await languageProvider.setLanguage('ms');
+      await languageProvider.setLocale(const Locale('ms'));
       expect(languageProvider.locale.languageCode, 'ms');
     });
 
     test('Language persists after initialization', () async {
-      await languageProvider.setLanguage('ms');
+      await languageProvider.setLocale(const Locale('en'));
       
       // Create new provider (would normally restore from saved preference)
       final newProvider = LanguageProvider();
       // Note: In real scenario, this would restore saved language
-      expect(newProvider.supportsLocale(const Locale('ms')), true);
+      expect(LanguageProvider.supportedLocales.contains(const Locale('en')), true);
     });
   });
 }

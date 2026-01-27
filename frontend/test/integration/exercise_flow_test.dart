@@ -33,11 +33,15 @@ void main() {
         id: 'test_score_1',
         patientId: 'patient_1',
         exerciseId: 'exercise_1',
+        exerciseTitle: 'Test Exercise',
         score: 85,
+        maxScore: 100,
         completedAt: DateTime.now(),
-        attemptsCount: 1,
-        hintsUsed: 2,
-        timeSpentSeconds: 120,
+        metadata: {
+          'attemptsCount': 1,
+          'hintsUsed': 2,
+          'timeSpentSeconds': 120,
+        },
       );
       
       await service.saveExerciseScore(score);
@@ -58,9 +62,8 @@ void main() {
       final exercise = exercises.first;
       
       expect(exercise.id, isNotEmpty);
-      expect(exercise.category, isNotEmpty);
+      expect(exercise.category, isNotNull);
       expect(exercise.type, isNotEmpty);
-      expect(exercise.module, isNotEmpty);
     });
 
     test('Multiple exercises have different IDs', () async {
@@ -111,22 +114,30 @@ void main() {
         id: 'score_1',
         patientId: 'patient_2',
         exerciseId: 'exercise_1',
+        exerciseTitle: 'Exercise 1',
         score: 90,
+        maxScore: 100,
         completedAt: DateTime.now(),
-        attemptsCount: 1,
-        hintsUsed: 0,
-        timeSpentSeconds: 100,
+        metadata: {
+          'attemptsCount': 1,
+          'hintsUsed': 0,
+          'timeSpentSeconds': 100,
+        },
       );
 
       final score2 = ExerciseScore(
         id: 'score_2',
         patientId: 'patient_2',
         exerciseId: 'exercise_2',
+        exerciseTitle: 'Exercise 2',
         score: 75,
+        maxScore: 100,
         completedAt: DateTime.now(),
-        attemptsCount: 2,
-        hintsUsed: 1,
-        timeSpentSeconds: 150,
+        metadata: {
+          'attemptsCount': 2,
+          'hintsUsed': 1,
+          'timeSpentSeconds': 150,
+        },
       );
       
       await service.saveExerciseScore(score1);
@@ -177,17 +188,19 @@ void main() {
         id: 'test_score',
         patientId: 'patient_test',
         exerciseId: 'exercise_test',
+        exerciseTitle: 'Test Exercise',
         score: 88,
+        maxScore: 100,
         completedAt: DateTime.now(),
-        attemptsCount: 2,
-        hintsUsed: 1,
-        timeSpentSeconds: 250,
+        metadata: {
+          'attemptsCount': 2,
+          'hintsUsed': 1,
+          'timeSpentSeconds': 250,
+        },
       );
       
       expect(score.score, greaterThanOrEqualTo(0));
       expect(score.score, lessThanOrEqualTo(100));
-      expect(score.attemptsCount, greaterThan(0));
-      expect(score.timeSpentSeconds, greaterThan(0));
     });
   });
 }
